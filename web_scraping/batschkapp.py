@@ -3,6 +3,7 @@ from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
 from models.event import BatschkappEvent
 
@@ -47,6 +48,6 @@ def load_events():
 
     return [
         _create_batschkapp_event(event_dto)
-        for event_dto in events_dto
+        for event_dto in tqdm(events_dto)
         if event_dto["TourId"]["RubrikId"]["name"] == "Konzert"
     ]

@@ -23,3 +23,8 @@ class BatschkappEvent(Event):
 class JahrhunderthalleEvent(Event):
     id: str
     subtitle: str
+
+
+@dataclass(frozen=True)
+class SchlachthofEvent(Event):
+    subtitle: str
