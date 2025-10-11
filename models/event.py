@@ -17,3 +17,9 @@ class BatschkappEvent(Event):
     id: str
     subtitle: str
     status: str
+
+
+@dataclass(frozen=True)
+class JahrhunderthalleEvent(Event):
+    id: str
+    subtitle: str
