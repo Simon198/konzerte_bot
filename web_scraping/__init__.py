@@ -1,3 +1,1 @@
-from . import batschkapp
-from . import jahrhunderthalle
-from . import schlachthof
+from . import batschkapp, festhalle, jahrhunderthalle, schlachthof

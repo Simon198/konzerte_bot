@@ -21,6 +21,11 @@ class BatschkappEvent(Event):
 
 
 @dataclass(frozen=True)
+class FesthalleEvent(Event):
+    pass
+
+
+@dataclass(frozen=True)
 class JahrhunderthalleEvent(Event):
     id: str
     subtitle: str
