@@ -1,17 +1,20 @@
+import logging
 from datetime import datetime
 
-from sqlalchemy import create_engine
+from dotenv import load_dotenv
 from sqlalchemy.orm import Session
 
 import web_scraping
-from models import Base, Event
+from models import Event
+from repository import session
 from web_scraping.dto import EventDTO
 
-engine = create_engine("sqlite:///concerts.db", echo=True)
-Base.metadata.create_all(engine)
+load_dotenv()
+
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
-def _insert_event(session: Session, event_dto: EventDTO):
+def _insert_event(event_dto: EventDTO):
     event = Event(
         id=event_dto.id,
         band=event_dto.band,
@@ -40,7 +43,7 @@ def _update_event(event_dto: EventDTO, event: Event):
     event.update_time = datetime.now()
 
 
-def _insert_or_update_event(session: Session, event_dto: EventDTO):
+def _insert_or_update_event(event_dto: EventDTO):
     event = session.get(Event, event_dto.id)
     if event is None:
         _insert_event(session, event_dto)
@@ -48,9 +51,9 @@ def _insert_or_update_event(session: Session, event_dto: EventDTO):
         _update_event(event_dto, event)
 
 
-# Create session
-with Session(engine) as session:
-    event_dtos = web_scraping.load_all_events()
-    for event_dto in event_dtos:
-        _insert_or_update_event(session, event_dto)
-    session.commit()
+event_dtos = web_scraping.load_all_events()
+for event_dto in event_dtos:
+    _insert_or_update_event(session, event_dto)
+session.commit()
+
+session.close()
