@@ -1,17 +1,21 @@
 import json
+import logging
+import time
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from models.event import BatschkappEvent
+from .dto import EventDTO
+
+logger = logging.getLogger(__name__)
 
 
 def _create_batschkapp_event(event_dto):
     admission_datetime = datetime.strptime(event_dto["einlass"], "%Y-%m-%d %H:%M:%S")
     begin_datetime = datetime.strptime(event_dto["beginn"], "%Y-%m-%d %H:%M:%S")
-    return BatschkappEvent(
+    return EventDTO(
         id=event_dto["id"],
         band=event_dto["TourId"]["titel"],
         city="Frankfurt",
@@ -31,6 +35,8 @@ def _create_batschkapp_event(event_dto):
 
 
 def load_events():
+    logger.info("Start loading Batschkapp events")
+    start_time = time.time()
     response = requests.get("https://www.batschkapp.net/")
     response.raise_for_status()
     response.encoding = "utf-8"
@@ -49,8 +55,12 @@ def load_events():
         "children"
     ][2][3]["events"]
 
-    return [
+    events = [
         _create_batschkapp_event(event_dto)
         for event_dto in tqdm(events_dto)
         if event_dto["TourId"]["RubrikId"]["name"] == "Konzert"
     ]
+    logger.info(
+        f"Retrieved {len(events)} Batschkapp events in {(time.time() - start_time) / 60:.2f}"
+    )
+    return events

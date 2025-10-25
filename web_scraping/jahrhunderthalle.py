@@ -1,13 +1,17 @@
+import logging
 import re
+import time
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from models.event import JahrhunderthalleEvent
+from .dto import EventDTO
 
 BASE_URL = "https://www.myticket-jahrhunderthalle.de"
+
+logger = logging.getLogger(__name__)
 
 
 def _get_admission_time(event_dto):
@@ -34,7 +38,7 @@ def _create_event(event_dto):
         return
 
     hour, minute = _get_admission_time(event_dto)
-    return JahrhunderthalleEvent(
+    return EventDTO(
         band=event_dto["title"],
         city="Frankfurt",
         location=f"Jahrhunderthalle - {event_dto['location']}",
@@ -60,13 +64,19 @@ def _create_event(event_dto):
 
 
 def load_events():
+    logger.info("Start loading Jahrhunderthalle events")
+    start_time = time.time()
     response = requests.get(f"{BASE_URL}/events.json")
     response.raise_for_status()
 
     data = response.json()
-    events: list[JahrhunderthalleEvent] = []
+    events: list[EventDTO] = []
     for event_dto in tqdm(data["events"]):
         event = _create_event(event_dto)
         if event is not None:
             events.append(event)
+
+    logger.info(
+        f"Retrieved {len(events)} Jahrhunderthalle events in {(time.time() - start_time) / 60:.2f}"
+    )
     return events

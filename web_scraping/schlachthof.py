@@ -1,11 +1,15 @@
+import logging
 import re
+import time
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from models.event import SchlachthofEvent
+from .dto import EventDTO
+
+logger = logging.getLogger(__name__)
 
 
 def _get_dates(soup: BeautifulSoup):
@@ -63,7 +67,7 @@ def _create_schlachthof_event(detail_url: str):
 
     date, admission, beginn = _get_dates(soup)
 
-    return SchlachthofEvent(
+    return EventDTO(
         id=id,
         band=band,
         city="Wiesbaden",
@@ -77,14 +81,20 @@ def _create_schlachthof_event(detail_url: str):
 
 
 def load_events():
+    logger.info("Start loading Schlachthof events")
+    start_time = time.time()
     response = requests.get("https://schlachthof-wiesbaden.de/")
     response.raise_for_status()
     soup = BeautifulSoup(response.text)
 
-    events: list[SchlachthofEvent] = []
+    events: list[EventDTO] = []
     for separator in tqdm(soup.find_all("a", class_="scroll-mt-[220px]")):
         event_dto = separator.next_sibling.next_sibling
         detail_url = event_dto.get("href")
         event = _create_schlachthof_event(detail_url)
         events.append(event)
+
+    logger.info(
+        f"Retrieved {len(events)} Schlachthof events in {(time.time() - start_time) / 60:.2f}"
+    )
     return events

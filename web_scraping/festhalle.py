@@ -1,11 +1,15 @@
+import logging
 import re
+import time
 from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-from models.event import FesthalleEvent
+from .dto import EventDTO
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_date(date_str: str):
@@ -64,7 +68,7 @@ def _create_festhalle_event(hit):
 
     date, beginn, admission, hint = _get_dates(soup)
 
-    return FesthalleEvent(
+    return EventDTO(
         id=hit["eventid"],
         band="Montez",
         city=hit["cityname"],
@@ -77,11 +81,13 @@ def _create_festhalle_event(hit):
 
 
 def load_events():
+    logger.info("Start loading Festhalle events")
+    start_time = time.time()
     page = 1
     page_size = 50
     total = 51
     progress = None
-    events: list[FesthalleEvent] = []
+    events: list[EventDTO] = []
 
     while (page - 1) * page_size < total:
         response = requests.get(
@@ -109,6 +115,9 @@ def load_events():
         progress.update(len(hits))
 
     progress.close()
+    logger.info(
+        f"Retrieved {len(events)} Festhalle events in {(time.time() - start_time) / 60:.2f}"
+    )
     return events
 
 
