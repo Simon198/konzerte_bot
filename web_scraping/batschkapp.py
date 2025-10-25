@@ -9,7 +9,10 @@ from models.event import BatschkappEvent
 
 
 def _create_batschkapp_event(event_dto):
+    admission_datetime = datetime.strptime(event_dto["einlass"], "%Y-%m-%d %H:%M:%S")
+    begin_datetime = datetime.strptime(event_dto["beginn"], "%Y-%m-%d %H:%M:%S")
     return BatschkappEvent(
+        id=event_dto["id"],
         band=event_dto["TourId"]["titel"],
         city="Frankfurt",
         location=event_dto["VeranstaltungsortId"]["veranstaltungsort"],
@@ -19,9 +22,9 @@ def _create_batschkapp_event(event_dto):
                 for textes in event_dto["EventHinweistextes"]
             ]
         ),
-        admission=datetime.strptime(event_dto["einlass"], "%Y-%m-%d %H:%M:%S"),
-        beginn=datetime.strptime(event_dto["beginn"], "%Y-%m-%d %H:%M:%S"),
-        id=event_dto["id"],
+        date=begin_datetime.date(),
+        beginn=begin_datetime.time(),
+        admission=admission_datetime.time(),
         subtitle=event_dto["TourId"]["untertitel"],
         status=event_dto["status"],
     )

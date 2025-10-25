@@ -1,20 +1,21 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, time
 
 
 @dataclass(frozen=True)
 class Event:
+    id: str
     band: str
     city: str
     location: str
     hint: str
-    admission: datetime
-    beginn: datetime
+    date: date
+    admission: time
+    beginn: time
 
 
 @dataclass(frozen=True)
 class BatschkappEvent(Event):
-    id: str
     subtitle: str
     status: str
 
