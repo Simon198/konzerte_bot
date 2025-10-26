@@ -55,6 +55,7 @@ def _insert_event(event_dto: EventDTO):
 
 
 def _update_event(event_dto: EventDTO, event: Event):
+    # TODO: only change update_time if any value is different
     event.source = event_dto.source
     event.band = event_dto.band
     event.city = event_dto.city
