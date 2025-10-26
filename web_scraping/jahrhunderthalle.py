@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+from models.event import Source
+
 from .dto import EventDTO
 
 BASE_URL = "https://www.myticket-jahrhunderthalle.de"
@@ -39,7 +41,7 @@ def _create_event(event_dto):
 
     hour, minute = _get_admission_time(event_dto)
     return EventDTO(
-        source="Jahrhunderthalle",
+        source=Source.JAHRHUNDERTHALLE,
         band=event_dto["title"],
         city="Frankfurt",
         location=f"Jahrhunderthalle - {event_dto['location']}",

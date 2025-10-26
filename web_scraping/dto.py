@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from datetime import date, time
 
+from models.event import Source
+
 
 @dataclass(frozen=True)
 class EventDTO:
     id: str
-    source: str
+    source: Source
     band: str
     city: str
     location: str

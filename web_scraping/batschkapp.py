@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+from models.event import Source
+
 from .dto import EventDTO
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ def _create_batschkapp_event(event_dto):
     city = "Offenbach" if location == "Stadthalle Offenbach" else "Frankfurt"
     return EventDTO(
         id=event_dto["id"],
-        source="Batschkapp",
+        source=Source.BATSCHKAPP,
         band=event_dto["TourId"]["titel"],
         city=city,
         location=location,

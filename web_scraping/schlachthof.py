@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+from models.event import Source
+
 from .dto import EventDTO
 
 logger = logging.getLogger(__name__)
@@ -69,7 +71,7 @@ def _create_schlachthof_event(detail_url: str):
 
     return EventDTO(
         id=id,
-        source="Schlachthof",
+        source=Source.SCHLACHTHOF,
         band=band,
         city="Wiesbaden",
         location="Schlachthof",

@@ -1,16 +1,24 @@
+import enum
 from datetime import date, datetime, time
 
-from sqlalchemy import Date, DateTime, String, Time
+from sqlalchemy import Date, DateTime, Enum, String, Time
 from sqlalchemy.orm import Mapped, mapped_column
 
 from . import Base
+
+
+class Source(enum.Enum):
+    BATSCHKAPP = "Batschkapp"
+    FESTHALLE = "Festhalle"
+    JAHRHUNDERTHALLE = "Jahrhunderthalle"
+    SCHLACHTHOF = "Schlachthof"
 
 
 class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[str] = mapped_column(String(), primary_key=True)
-    source: Mapped[str] = mapped_column(String(), nullable=False)
+    source: Mapped[Source] = mapped_column(Enum(Source), nullable=False)
     band: Mapped[str] = mapped_column(String(), nullable=False)
     city: Mapped[str] = mapped_column(String(), nullable=False)
     location: Mapped[str] = mapped_column(String(), nullable=False)

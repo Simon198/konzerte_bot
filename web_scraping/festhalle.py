@@ -7,6 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
+from models.event import Source
+
 from .dto import EventDTO
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ def _create_festhalle_event(hit):
 
     return EventDTO(
         id=hit["eventid"],
-        source="Festhalle",
+        source=Source.FESTHALLE,
         band="Montez",
         city="Frankfurt",
         location=hit["venuename"],
