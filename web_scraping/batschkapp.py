@@ -15,11 +15,13 @@ logger = logging.getLogger(__name__)
 def _create_batschkapp_event(event_dto):
     admission_datetime = datetime.strptime(event_dto["einlass"], "%Y-%m-%d %H:%M:%S")
     begin_datetime = datetime.strptime(event_dto["beginn"], "%Y-%m-%d %H:%M:%S")
+    location = event_dto["VeranstaltungsortId"]["veranstaltungsort"]
+    city = "Offenbach" if location == "Stadthalle Offenbach" else "Frankfurt"
     return EventDTO(
         id=event_dto["id"],
         band=event_dto["TourId"]["titel"],
-        city="Frankfurt",
-        location=event_dto["VeranstaltungsortId"]["veranstaltungsort"],
+        city=city,
+        location=location,
         hint="; ".join(
             [
                 textes["Hinweistextes_id"]["hinweistext"]
