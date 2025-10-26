@@ -5,6 +5,7 @@ from datetime import date, time
 @dataclass(frozen=True)
 class EventDTO:
     id: str
+    source: str
     band: str
     city: str
     location: str

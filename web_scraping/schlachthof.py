@@ -69,6 +69,7 @@ def _create_schlachthof_event(detail_url: str):
 
     return EventDTO(
         id=id,
+        source="Schlachthof",
         band=band,
         city="Wiesbaden",
         location="Schlachthof",

@@ -2,7 +2,6 @@ import logging
 from datetime import datetime
 
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
 
 import web_scraping
 from models import Event
@@ -17,6 +16,7 @@ logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s
 def _insert_event(event_dto: EventDTO):
     event = Event(
         id=event_dto.id,
+        source=event_dto.source,
         band=event_dto.band,
         city=event_dto.city,
         location=event_dto.location,
@@ -31,6 +31,7 @@ def _insert_event(event_dto: EventDTO):
 
 
 def _update_event(event_dto: EventDTO, event: Event):
+    event.source = event_dto.source
     event.band = event_dto.band
     event.city = event_dto.city
     event.location = event_dto.location
@@ -46,14 +47,14 @@ def _update_event(event_dto: EventDTO, event: Event):
 def _insert_or_update_event(event_dto: EventDTO):
     event = session.get(Event, event_dto.id)
     if event is None:
-        _insert_event(session, event_dto)
+        _insert_event(event_dto)
     else:
         _update_event(event_dto, event)
 
 
 event_dtos = web_scraping.load_all_events()
 for event_dto in event_dtos:
-    _insert_or_update_event(session, event_dto)
+    _insert_or_update_event(event_dto)
 session.commit()
 
 session.close()

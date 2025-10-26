@@ -19,6 +19,7 @@ def _create_batschkapp_event(event_dto):
     city = "Offenbach" if location == "Stadthalle Offenbach" else "Frankfurt"
     return EventDTO(
         id=event_dto["id"],
+        source="Batschkapp",
         band=event_dto["TourId"]["titel"],
         city=city,
         location=location,

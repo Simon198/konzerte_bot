@@ -70,8 +70,9 @@ def _create_festhalle_event(hit):
 
     return EventDTO(
         id=hit["eventid"],
+        source="Festhalle",
         band="Montez",
-        city=hit["cityname"],
+        city="Frankfurt",
         location=hit["venuename"],
         hint=hint,
         date=date,

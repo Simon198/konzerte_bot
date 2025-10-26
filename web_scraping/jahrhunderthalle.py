@@ -39,6 +39,7 @@ def _create_event(event_dto):
 
     hour, minute = _get_admission_time(event_dto)
     return EventDTO(
+        source="Jahrhunderthalle",
         band=event_dto["title"],
         city="Frankfurt",
         location=f"Jahrhunderthalle - {event_dto['location']}",

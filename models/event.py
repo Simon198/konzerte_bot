@@ -10,6 +10,7 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[str] = mapped_column(String(), primary_key=True)
+    source: Mapped[str] = mapped_column(String(), nullable=False)
     band: Mapped[str] = mapped_column(String(), nullable=False)
     city: Mapped[str] = mapped_column(String(), nullable=False)
     location: Mapped[str] = mapped_column(String(), nullable=False)
