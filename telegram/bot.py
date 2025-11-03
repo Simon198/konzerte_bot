@@ -1,6 +1,7 @@
 from repository import session
 
 from . import telegram_bot
+from .callback_query_handler import handle_callback_query
 from .message_handler import handle_message
 from .poll_answer_handler import handle_poll_answer
 
@@ -18,6 +19,8 @@ def run_telegram_bot():
                 handle_message(update.message)
             elif update.poll_answer is not None:
                 handle_poll_answer(update.poll_answer)
+            elif update.callback_query is not None:
+                handle_callback_query(update.callback_query)
             else:
                 # TODO: what to do
                 print()

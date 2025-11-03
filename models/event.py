@@ -14,11 +14,14 @@ class Source(enum.Enum):
     SCHLACHTHOF = "Schlachthof"
 
 
+source_enum = Enum(Source, name="source_enum")
+
+
 class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[str] = mapped_column(String(), primary_key=True)
-    source: Mapped[Source] = mapped_column(Enum(Source), nullable=False)
+    source: Mapped[Source] = mapped_column(source_enum, nullable=False)
     band: Mapped[str] = mapped_column(String(), nullable=False)
     city: Mapped[str] = mapped_column(String(), nullable=False)
     location: Mapped[str] = mapped_column(String(), nullable=False)

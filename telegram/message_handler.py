@@ -23,9 +23,6 @@ def start(message: Message):
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
-    # TODO: send list of all events
-    # TODO: store message id to update later
-    print()
 
 
 def sources(message: Message):
