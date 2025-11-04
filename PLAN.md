@@ -1,0 +1,22 @@
+# TODOs
+- [x] Parse various websites (TODO: rss feed?)
+    - band + date + location + image + genre + ausverkauft? + extra infos
+- [x] Create SQLite DB
+- [x] Add SQLAlchemy
+- [x] Update or insert locations
+    - add creation and update time
+- [x] Create Telegram Bot
+- [x] /start Store chat-id in DB (+ maybe user id) + message to admin
+- [x] /location User can setup which location to be subscribed to
+    - implement this as exclusion list
+- [x] Message events to users
+- [x] Message to changed / canceled events
+- [ ] Message when two users are interested in the same concert
+- [ ] send logs, progressbar and telemetry with telegram admin bot
+- [ ] error handling
+- [ ] reminder message if today is a concert that you are interested in
+    - print the admission and beginn time
+- [ ] /feature to allow the user to send a feature request to admin
+- [ ] update description and commands in bot father
+- [ ] changelog to all users when new features arrive
+- [ ] Select genre
