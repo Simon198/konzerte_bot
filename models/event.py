@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime, time
 
 from sqlalchemy import Date, DateTime, Enum, String, Time
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
 
@@ -33,3 +33,29 @@ class Event(Base):
     status: Mapped[str | None] = mapped_column(String(), nullable=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now())
     update_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now())
+
+    interest: Mapped[list["Interest"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+    observed: Mapped[list["Observed"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+    )
+
+    def get_message_text(self):
+        text = f"{self.event_date} - {self.band} ({self.city}-{self.location})"
+        if self.subtitle:
+            text += "\n" + self.subtitle
+        if self.admission or self.beginn:
+            parts = []
+            if self.admission:
+                parts.append(f"Einlass: {self.admission}")
+            if self.beginn:
+                parts.append(f"Beginn: {self.beginn}")
+            text += "\n" + "; ".join(parts)
+        if self.hint:
+            text += "\n" + self.hint
+        if self.status:
+            text += "\nStatus: " + self.status
+        return text

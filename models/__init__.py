@@ -5,4 +5,4 @@ class Base(DeclarativeBase):
     pass
 
 
-from .event import Event
+from . import event, poll, user

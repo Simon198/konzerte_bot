@@ -3,6 +3,7 @@ from datetime import datetime
 
 from models.event import Event
 from repository import session
+from telegram import telegram_bot
 
 from . import batschkapp, festhalle, jahrhunderthalle, schlachthof
 from .dto import EventDTO
@@ -54,19 +55,88 @@ def _insert_event(event_dto: EventDTO):
     return event
 
 
+def _update_observed_messages(event: Event, old_message_text: str):
+    """
+    If the message text is updated, update all message of events that have been observed by users
+    """
+    new_message_text = event.get_message_text()
+    if old_message_text == new_message_text:
+        return
+
+    for observed_event in event.observed:
+        chat_id = observed_event.user.chat_id
+        message_id = observed_event.message_id
+        telegram_bot.edit_message_text(
+            text=new_message_text, chat_id=chat_id, message_id=message_id
+        )
+
+
+TRANSLATIONS = {
+    "band": "Band",
+    "city": "Stadt",
+    "location": "Lokation",
+    "event_date": "Datum",
+    "admission": "Einlass",
+    "beginn": "Beginn",
+    "hint": "Hinweis",
+    "status": "Status",
+}
+
+
+def _send_message_to_interested_users(event, changes):
+    """
+    Send a message to all interested users of the changed events
+    """
+    for interest in event.interest:
+        chat_id = interest.user.chat_id
+        change_texts: list[str] = []
+        for attr, (old_value, new_value) in changes.items():
+            if attr not in TRANSLATIONS:
+                continue
+            change_texts.append(f"{TRANSLATIONS[attr]}: {old_value} -> {new_value}")
+
+        if len(change_texts) == 0:
+            continue
+
+        text = (
+            f"Es gibt folgende Änderungen zu {event.band} ({event.event_date})\n"
+            + "\n".join(change_texts)
+        )
+        telegram_bot.send_message(chat_id=chat_id, text=text)
+
+
 def _update_event(event_dto: EventDTO, event: Event):
-    # TODO: only change update_time if any value is different and send message for interested users
-    event.source = event_dto.source
-    event.band = event_dto.band
-    event.city = event_dto.city
-    event.location = event_dto.location
-    event.event_date = event_dto.date
-    event.admission = event_dto.admission
-    event.beginn = event_dto.beginn
-    event.hint = event_dto.hint
-    event.subtitle = event_dto.subtitle
-    event.status = event_dto.status
+    """
+    Update the DB event by the new dto object. If changes have occured, message the users
+    """
+    old_message_text = event.get_message_text()
+
+    changes: dict[str, any] = {}
+    fields = {
+        "source": event_dto.source,
+        "band": event_dto.band,
+        "city": event_dto.city,
+        "location": event_dto.location,
+        "event_date": event_dto.date,
+        "admission": event_dto.admission,
+        "beginn": event_dto.beginn,
+        "hint": event_dto.hint,
+        "subtitle": event_dto.subtitle,
+        "status": event_dto.status,
+    }
+
+    for attr, new_value in fields.items():
+        old_value = getattr(event, attr)
+        if old_value != new_value:
+            setattr(event, attr, new_value)
+            changes[attr] = (old_value, new_value)
+
+    if len(changes) == 0:
+        return event
+
     event.update_time = datetime.now()
+    _update_observed_messages(event, old_message_text)
+    _send_message_to_interested_users(event, changes)
     return event
 
 
