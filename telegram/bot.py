@@ -6,7 +6,7 @@ from .message_handler import handle_message
 from .poll_answer_handler import handle_poll_answer
 
 
-def run_telegram_bot():
+def poll_updates():
     offset = None
     while True:
         updates = telegram_bot.get_updates(offset=offset, timeout=5)
