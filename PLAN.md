@@ -11,12 +11,13 @@
     - implement this as exclusion list
 - [x] Message events to users
 - [x] Message to changed / canceled events
-- [ ] Message when two users are interested in the same concert
+- [x] Message to admins when users are interested in concert
 - [ ] send logs, progressbar and telemetry with telegram admin bot
 - [ ] error handling
 - [ ] reminder message if today is a concert that you are interested in
     - print the admission and beginn time
 - [ ] /feature to allow the user to send a feature request to admin
 - [ ] update description and commands in bot father
+- [ ] add images to texts
 - [ ] changelog to all users when new features arrive
 - [ ] Select genre

@@ -31,7 +31,7 @@ def sources(message: Message):
     stmt = select(Event.source).distinct().order_by(Event.source)
 
     question = "Zu welchen Quellen möchtest du benachrichtigt werden?"
-    options: list[str] = [source.value for (source,) in session.execute(stmt).all()]
+    options: list[str] = [source.value for source in session.scalars(stmt).all()]
 
     poll_response = telegram_bot.send_poll(
         chat_id=chat_id,
@@ -67,8 +67,7 @@ def next_interested_events(message: Message):
         .order_by(Event.event_date.asc())
         .limit(limit)
     )
-    for row in session.execute(stmt):
-        event: Event = row[0]
+    for event in session.scalars(stmt):
         telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
 
 

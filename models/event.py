@@ -55,8 +55,11 @@ class Event(Base):
     def get_beginn_text(self):
         return self._get_time_without_seconds(self.beginn)
 
+    def get_short_message_text(self):
+        return f"{self.get_german_date()} - {self.band} ({self.city}-{self.location})"
+
     def get_message_text(self):
-        text = f"{self.get_german_date()} - {self.band} ({self.city}-{self.location})"
+        text = self.get_short_message_text()
         if self.subtitle:
             text += "\n" + self.subtitle
         if self.admission or self.beginn:

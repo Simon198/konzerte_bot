@@ -32,9 +32,7 @@ def send_events_to_user(user: User):
         .limit(5)
     )
 
-    events: list[Event] = [event for (event,) in session.execute(stmt).all()]
-
-    for event in events:
+    for event in session.scalars(stmt):
         markup = InlineKeyboardMarkup()
         btn_yes = InlineKeyboardButton(
             "✅ Interesse", callback_data=f"interested;{event.id}"
@@ -55,7 +53,7 @@ def send_events_to_user(user: User):
 
 
 def send_events():
-    for (user,) in session.execute(select(User)):
+    for user in session.scalars(select(User)):
         send_events_to_user(user)
 
 
