@@ -43,16 +43,28 @@ class Event(Base):
         cascade="all, delete-orphan",
     )
 
+    def get_german_date(self):
+        return self.event_date.strftime("%d.%m.%Y")
+
+    def _get_time_without_seconds(self, time_: time):
+        return time_.strftime("%H:%M") + " Uhr"
+
+    def get_admission_text(self):
+        return self._get_time_without_seconds(self.admission)
+
+    def get_beginn_text(self):
+        return self._get_time_without_seconds(self.beginn)
+
     def get_message_text(self):
-        text = f"{self.event_date} - {self.band} ({self.city}-{self.location})"
+        text = f"{self.get_german_date()} - {self.band} ({self.city}-{self.location})"
         if self.subtitle:
             text += "\n" + self.subtitle
         if self.admission or self.beginn:
             parts = []
             if self.admission:
-                parts.append(f"Einlass: {self.admission}")
+                parts.append(f"Einlass: {self.get_admission_text()}")
             if self.beginn:
-                parts.append(f"Beginn: {self.beginn}")
+                parts.append(f"Beginn: {self.get_beginn_text()}")
             text += "\n" + "; ".join(parts)
         if self.hint:
             text += "\n" + self.hint

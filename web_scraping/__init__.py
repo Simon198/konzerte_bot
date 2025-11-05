@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime
 
+from sqlalchemy import delete, func
+
 from models.event import Event
 from repository import session
 from telegram import telegram_bot
@@ -149,7 +151,8 @@ def _insert_or_update_event(event_dto: EventDTO):
 
 
 def load_and_persist_events():
-    event_dtos = _load_all_events()
-    events = [_insert_or_update_event(event_dto) for event_dto in event_dtos]
+    for event_dto in _load_all_events():
+        _insert_or_update_event(event_dto)
+    session.flush()
+    session.execute(delete(Event).where(Event.event_date < func.current_date()))
     session.commit()
-    return events

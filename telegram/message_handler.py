@@ -4,7 +4,7 @@ from telebot.types import Message
 
 from models.event import Event, Source
 from models.poll import Poll, PollOption
-from models.user import User
+from models.user import Interest, User
 from repository import session
 
 from . import telegram_bot
@@ -50,7 +50,29 @@ def sources(message: Message):
     session.add(poll)
 
 
-COMMANDS = {"start": start, "sources": sources}
+def next_interested_events(message: Message):
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+
+    try:
+        limit = int(message.text.split("/next")[1])
+    except:
+        limit = 5
+
+    stmt = (
+        select(Event)
+        .distinct()
+        .join(Interest, Interest.event_id == Event.id)
+        .where(Interest.user_id == user_id)
+        .order_by(Event.event_date.asc())
+        .limit(limit)
+    )
+    for row in session.execute(stmt):
+        event: Event = row[0]
+        telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
+
+
+COMMANDS = {"start": start, "sources": sources, "next": next_interested_events}
 
 
 def execute_command(command: str, message: Message):
