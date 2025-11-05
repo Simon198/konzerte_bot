@@ -16,6 +16,7 @@
 - [ ] error handling
 - [ ] reminder message if today is a concert that you are interested in
     - print the admission and beginn time
+- [ ] increase the limit when there are a lot of unobserved events by the user
 - [ ] /feature to allow the user to send a feature request to admin
 - [ ] update description and commands in bot father
 - [ ] add images to texts
