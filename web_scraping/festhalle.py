@@ -5,9 +5,9 @@ from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 
 from models.event import Source
+from progressbar import tqdm_admin_telegram
 
 from .dto import EventDTO
 
@@ -73,7 +73,7 @@ def _create_festhalle_event(hit):
     return EventDTO(
         id=hit["eventid"],
         source=Source.FESTHALLE,
-        band="Montez",
+        band=hit["eventname"],
         city="Frankfurt",
         location=hit["venuename"],
         hint=hint,
@@ -104,7 +104,7 @@ def load_events():
 
         total = result["metaData"]["hitsTotal"]
         if progress is None:
-            progress = tqdm(total=total, desc="Processing")
+            progress = tqdm_admin_telegram(total=total)
 
         hits = result["hits"]
         for hit in hits:
@@ -119,7 +119,7 @@ def load_events():
 
     progress.close()
     logger.info(
-        f"Retrieved {len(events)} Festhalle events in {(time.time() - start_time) / 60:.2f}"
+        f"Retrieved {len(events)} Festhalle events in {(time.time() - start_time) / 60:.2f} minutes"
     )
     return events
 

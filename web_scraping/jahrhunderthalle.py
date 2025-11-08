@@ -5,9 +5,9 @@ from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 
 from models.event import Source
+from progressbar import tqdm_admin_telegram
 
 from .dto import EventDTO
 
@@ -74,12 +74,12 @@ def load_events():
 
     data = response.json()
     events: list[EventDTO] = []
-    for event_dto in tqdm(data["events"]):
+    for event_dto in tqdm_admin_telegram(data["events"]):
         event = _create_event(event_dto)
         if event is not None:
             events.append(event)
 
     logger.info(
-        f"Retrieved {len(events)} Jahrhunderthalle events in {(time.time() - start_time) / 60:.2f}"
+        f"Retrieved {len(events)} Jahrhunderthalle events in {(time.time() - start_time) / 60:.2f} minutes"
     )
     return events

@@ -5,9 +5,9 @@ from datetime import datetime
 
 import requests
 from bs4 import BeautifulSoup
-from tqdm import tqdm
 
 from models.event import Source
+from progressbar import tqdm_admin_telegram
 
 from .dto import EventDTO
 
@@ -62,10 +62,10 @@ def load_events():
 
     events = [
         _create_batschkapp_event(event_dto)
-        for event_dto in tqdm(events_dto)
+        for event_dto in tqdm_admin_telegram(events_dto)
         if event_dto["TourId"]["RubrikId"]["name"] == "Konzert"
     ]
     logger.info(
-        f"Retrieved {len(events)} Batschkapp events in {(time.time() - start_time) / 60:.2f}"
+        f"Retrieved {len(events)} Batschkapp events in {(time.time() - start_time) / 60:.2f} minutes"
     )
     return events

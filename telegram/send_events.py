@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy import and_, not_, select
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -6,6 +8,8 @@ from models.user import Observed, User
 from repository import session
 
 from . import telegram_bot
+
+logger = logging.getLogger(__name__)
 
 
 def send_events_to_user(user: User):
@@ -32,7 +36,9 @@ def send_events_to_user(user: User):
         .limit(5)
     )
 
-    for event in session.scalars(stmt):
+    events = session.scalars(stmt).all()
+    logger.info(f"Sending {len(events)} events to user {user.id}")
+    for event in events:
         markup = InlineKeyboardMarkup()
         btn_yes = InlineKeyboardButton(
             "✅ Interesse", callback_data=f"interested;{event.id}"

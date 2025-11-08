@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 
 from sqlalchemy import delete, func
@@ -14,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def _load_all_events():
+    logger.info("Start importing events")
+    start_time = time.time()
     events: list[EventDTO] = []
 
     try:
@@ -36,6 +39,10 @@ def _load_all_events():
     except:
         logging.exception("The events of Schlachthof could not be loaded")
 
+    end_time = time.time()
+    logger.info(
+        f"Successfully loaded {len(events)} events in {((end_time - start_time)/60):.2f} minutes"
+    )
     return events
 
 
@@ -151,8 +158,12 @@ def _insert_or_update_event(event_dto: EventDTO):
 
 
 def load_and_persist_events():
-    for event_dto in _load_all_events():
-        _insert_or_update_event(event_dto)
-    session.flush()
-    session.execute(delete(Event).where(Event.event_date < func.current_date()))
-    session.commit()
+    try:
+        for event_dto in _load_all_events():
+            _insert_or_update_event(event_dto)
+        session.flush()
+        session.execute(delete(Event).where(Event.event_date < func.current_date()))
+        session.commit()
+        logger.info("Events have been successfully stored")
+    except:
+        logger.exception("An error occurred while loading the events")

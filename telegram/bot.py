@@ -1,9 +1,13 @@
+import logging
+
 from repository import session
 
 from . import telegram_bot
 from .callback_query_handler import handle_callback_query
 from .message_handler import handle_message
 from .poll_answer_handler import handle_poll_answer
+
+logger = logging.getLogger(__name__)
 
 
 def poll_updates():
@@ -14,19 +18,19 @@ def poll_updates():
             break
 
         for update in updates:
+            try:
+                if update.message is not None:
+                    handle_message(update.message)
+                elif update.poll_answer is not None:
+                    handle_poll_answer(update.poll_answer)
+                elif update.callback_query is not None:
+                    handle_callback_query(update.callback_query)
+                else:
+                    logger.warning("The user's update type is unknown")
 
-            if update.message is not None:
-                handle_message(update.message)
-            elif update.poll_answer is not None:
-                handle_poll_answer(update.poll_answer)
-            elif update.callback_query is not None:
-                handle_callback_query(update.callback_query)
-            else:
-                # TODO: what to do
-                print()
-
-            session.commit()
-            offset = max(update.update_id + 1, offset or 0)
-
-        print()
-    print()
+                session.commit()
+                offset = max(update.update_id + 1, offset or 0)
+            except:
+                logger.exception(
+                    "An uncatched error occured while working on an user's update"
+                )

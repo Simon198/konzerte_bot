@@ -1,0 +1,3 @@
+[logging]
+log_folder = /var/log/konzerte_bot
+log_level = INFO

@@ -1,3 +1,6 @@
+import logging
+from typing import Callable, TypedDict
+
 import telebot
 from sqlalchemy import select
 from telebot.types import Message
@@ -6,8 +9,11 @@ from models.event import Event, Source
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
+from telegram.get_admins import send_message_to_admins
 
 from . import telegram_bot
+
+logger = logging.getLogger(__name__)
 
 
 def start(message: Message):
@@ -23,6 +29,7 @@ def start(message: Message):
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
+    send_message_to_admins(f"@{message.from_user.username} tritt der Gang bei")
 
 
 def sources(message: Message):
@@ -71,21 +78,49 @@ def next_interested_events(message: Message):
         telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
 
 
-COMMANDS = {"start": start, "sources": sources, "next": next_interested_events}
+class Command(TypedDict):
+    cmd: Callable[[Message], None]
+    description: str
+
+
+COMMANDS: dict[str, Command] = {
+    "start": {"cmd": start, "description": "Registrierung neuer Nutzer"},
+    "sources": {
+        "cmd": sources,
+        "description": "Konfiguration, von welchen Veranstaltern Du Events erhalten möchtest",
+    },
+    "next": {
+        "cmd": next_interested_events,
+        "description": "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen.",
+    },
+}
 
 
 def execute_command(command: str, message: Message):
     func = COMMANDS.get(command)
     if func is None:
-        # TODO: send exception to user
+        telegram_bot.reply_to(
+            message=message,
+            text=f"Dein Kommando ist unbekannt. Erlaubte Kommandos:\n"
+            + "\n".join(
+                [f"/{key}: {value["description"]}" for key, value in COMMANDS.items()]
+            ),
+        )
+        logger.warning(f"Unknown command from user: {command}")
         return
 
-    func(message)
+    logger.info(f"Executing command: /{command}")
+    func["cmd"](message)
 
 
 def handle_message(message: Message):
-    command = telebot.util.extract_command(getattr(message, "text", ""))
+    message_text = getattr(message, "text", "")
+    command = telebot.util.extract_command(message_text)
     if command is not None:
         execute_command(command, message)
     else:
-        print()
+        logger.warning(f"The user's message could not be interpreted: {message_text}")
+        telegram_bot.reply_to(
+            message=message,
+            text=f"Deine Nachricht konnte nicht interpretiert werden",
+        )

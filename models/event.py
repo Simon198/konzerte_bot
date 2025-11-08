@@ -44,6 +44,8 @@ class Event(Base):
     )
 
     def get_german_date(self):
+        if self.event_date is None:
+            return "(?)"
         return self.event_date.strftime("%d.%m.%Y")
 
     def _get_time_without_seconds(self, time_: time):
