@@ -32,7 +32,7 @@ def send_events_to_user(user: User):
                 ),
             )
         )
-        .order_by(Event.event_date, Event.beginn)
+        .order_by(Event.event_date.is_(None), Event.event_date, Event.beginn)
         .limit(5)
     )
 
