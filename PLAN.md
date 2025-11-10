@@ -14,7 +14,7 @@
 - [x] Message to admins when users are interested in concert
 - [x] send logs, progressbar and telemetry with telegram admin bot
 - [x] error handling
-- [ ] reminder message if today or in a week is a concert that you are interested in
+- [x] reminder message if today or in a week is a concert that you are interested in
     - print the admission and beginn time
 - [ ] increase the limit when there are a lot of unobserved events by the user
 - [ ] /feature to allow the user to send a feature request to admin
