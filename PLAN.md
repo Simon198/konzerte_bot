@@ -18,6 +18,7 @@
     - print the admission and beginn time
 - [ ] increase the limit when there are a lot of unobserved events by the user
 - [x] /feature to allow the user to send a feature request to admin
+- [ ] let bot run all the time
 - [ ] update description and commands in bot father
 - [ ] check legal
 - [ ] add images to texts
