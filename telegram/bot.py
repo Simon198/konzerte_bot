@@ -29,8 +29,9 @@ def poll_updates():
                     logger.warning("The user's update type is unknown")
 
                 session.commit()
-                offset = max(update.update_id + 1, offset or 0)
             except:
                 logger.exception(
                     "An uncatched error occured while working on an user's update"
                 )
+            finally:
+                offset = max(update.update_id + 1, offset or 0)

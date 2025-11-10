@@ -6,6 +6,7 @@ from sqlalchemy import select
 from telebot.types import Message
 
 from models.event import Event, Source
+from models.feature import Feature
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
@@ -78,6 +79,22 @@ def next_interested_events(message: Message):
         telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
 
 
+def feature(message: Message):
+    user = session.get(User, message.from_user.id)
+
+    feature_text = message.text.split("/feature")[1].strip()
+    if len(feature_text) == 0:
+        telegram_bot.reply_to(
+            message=message, text="Gib deinen Feature-Wunsch hinter dem Befehl an"
+        )
+        return
+
+    feature = Feature(user=user, text=feature_text)
+    session.add(feature)
+    session.commit()
+    telegram_bot.reply_to(message=message, text="Dein Feature-Wunsch wurde aufgenommen")
+
+
 class Command(TypedDict):
     cmd: Callable[[Message], None]
     description: str
@@ -92,6 +109,10 @@ COMMANDS: dict[str, Command] = {
     "next": {
         "cmd": next_interested_events,
         "description": "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen.",
+    },
+    "feature": {
+        "cmd": feature,
+        "description": "Schreibe ein Feature-Wunsch, der dir wichtig ist",
     },
 }
 
