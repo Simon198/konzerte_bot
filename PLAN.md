@@ -16,11 +16,13 @@
 - [x] error handling
 - [x] reminder message if today or in a week is a concert that you are interested in
     - print the admission and beginn time
-- [ ] increase the limit when there are a lot of unobserved events by the user
 - [x] /feature to allow the user to send a feature request to admin
 - [ ] let bot run all the time
+- [ ] create command to load next x unobserved events by the user
 - [ ] update description and commands in bot father
 - [ ] check legal
 - [ ] add images to texts
 - [ ] changelog to all users when new features arrive
+- [ ] write systemctl service
+- [ ] deploy bot
 - [ ] Select genre
