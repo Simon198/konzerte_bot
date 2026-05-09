@@ -12,11 +12,11 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-def _load_reminder_dates(user: Event, event_date: date = date.today()):
+def _load_reminder_dates(user: User, event_date: date = date.today()):
     stmt = (
         select(Event)
         .join(Interest, Interest.event_id == Event.id)
-        .where(and_(Interest.user_id == user, Event.event_date == event_date))
+        .where(and_(Interest.user == user, Event.event_date == event_date))
     )
     return session.scalars(stmt)
 
@@ -40,9 +40,14 @@ def _remind_events_in_a_week(user: User):
 
 
 def remind_events():
-    for user in session.scalars(select(User)):
-        _remind_events_today(user)
-        _remind_events_in_a_week(user)
+    try:
+        logger.info("Start reminding events")
+        for user in session.scalars(select(User)):
+            _remind_events_today(user)
+            _remind_events_in_a_week(user)
+        logger.info("Reminding events successfully completed")
+    except:
+        logger.exception("Reminding events failed")
 
 
 if __name__ == "__main__":

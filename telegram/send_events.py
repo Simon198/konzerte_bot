@@ -54,13 +54,17 @@ def send_events_to_user(user: User):
 
         observed_event = Observed(user=user, event_id=event.id, message_id=message.id)
         user.observed.append(observed_event)
-
-    session.commit()
+        session.commit()
 
 
 def send_events():
-    for user in session.scalars(select(User)):
-        send_events_to_user(user)
+    try:
+        logger.info("Starting sending events")
+        for user in session.scalars(select(User)):
+            send_events_to_user(user)
+        logger.info("Events have been successfully sent")
+    except:
+        logger.exception("Sending events failed")
 
 
 if __name__ == "__main__":

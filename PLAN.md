@@ -17,9 +17,11 @@
 - [x] reminder message if today or in a week is a concert that you are interested in
     - print the admission and beginn time
 - [x] /feature to allow the user to send a feature request to admin
-- [ ] let bot run all the time
+- [x] let bot run all the time
+- [ ] automatically update list of COMMANDS in botfather
 - [ ] create command to load next x unobserved events by the user
 - [ ] update description and commands in bot father
+- [ ] add LLM to add genre of music
 - [ ] check legal
 - [ ] add images to texts
 - [ ] changelog to all users when new features arrive

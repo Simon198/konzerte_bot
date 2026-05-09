@@ -12,7 +12,7 @@ def _get_admins(current_user_id: str):
     )
 
 
-def send_message_to_admins(message_text: str, current_user_id: str):
+def send_message_to_admins(message_text: str, current_user_id: str | None = None):
     for admin in _get_admins(current_user_id):
         telegram_bot.send_message(
             chat_id=admin.chat_id,

@@ -6,13 +6,14 @@ from telebot.types import CallbackQuery
 from models.event import Event
 from models.user import Interest, User
 from repository import session
-from telegram.get_admins import send_message_to_admins
+from telegram.send_message_to_admins import send_message_to_admins
 
 from . import telegram_bot
 
 logger = logging.getLogger(__name__)
 
 
+@telegram_bot.callback_query_handler()
 def handle_callback_query(callback_query: CallbackQuery):
     message = callback_query.message
     message_id = message.id

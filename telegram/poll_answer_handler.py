@@ -1,13 +1,15 @@
 from sqlalchemy import delete
 from telebot.types import PollAnswer
 
+from . import telegram_bot
 from models.event import Source
 from models.poll import Poll
 from models.user import SourceUnsubscription
 from repository import session
 
 
-def sources_poll_answer(poll_answer: PollAnswer):
+@telegram_bot.poll_answer_handler()
+def handle_source_poll_answer(poll_answer: PollAnswer):
     user_id = poll_answer.user.id
 
     poll = session.get(Poll, poll_answer.poll_id)
@@ -26,7 +28,3 @@ def sources_poll_answer(poll_answer: PollAnswer):
     session.execute(stmt)
     # add new unsubscriptions
     session.add_all(source_unsubscriptions)
-
-
-def handle_poll_answer(poll_answer: PollAnswer):
-    sources_poll_answer(poll_answer)

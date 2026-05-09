@@ -10,13 +10,14 @@ from models.feature import Feature
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
-from telegram.get_admins import send_message_to_admins
+from telegram.send_message_to_admins import send_message_to_admins
 
 from . import telegram_bot
 
 logger = logging.getLogger(__name__)
 
 
+@telegram_bot.message_handler(commands=["start"])
 def start(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -31,8 +32,10 @@ def start(message: Message):
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
     send_message_to_admins(f"@{message.from_user.username} tritt der Gang bei")
+    session.commit()
 
 
+@telegram_bot.message_handler(commands=["sources"])
 def sources(message: Message):
     chat_id = message.chat.id
 
@@ -56,8 +59,10 @@ def sources(message: Message):
         ],
     )
     session.add(poll)
+    session.commit()
 
 
+@telegram_bot.message_handler(commands=["next"])
 def next_interested_events(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -79,6 +84,7 @@ def next_interested_events(message: Message):
         telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
 
 
+@telegram_bot.message_handler(commands=["feature"])
 def feature(message: Message):
     user = session.get(User, message.from_user.id)
 
