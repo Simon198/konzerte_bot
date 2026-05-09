@@ -1,7 +1,6 @@
+from enum import Enum
 import logging
-from typing import Callable, TypedDict
 
-import telebot
 from sqlalchemy import select
 from telebot.types import Message
 
@@ -17,7 +16,14 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-@telegram_bot.message_handler(commands=["start"])
+class Commands(Enum):
+    start = "Registrierung neuer Nutzer"
+    sources = "Konfiguration, von welchen Veranstaltern Du Events erhalten möchtest"
+    next = "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
+    feature = "Schreibe ein Feature-Wunsch, der dir wichtig ist"
+
+
+@telegram_bot.message_handler(commands=[Commands.start.name])
 def start(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -31,11 +37,11 @@ def start(message: Message):
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
-    send_message_to_admins(f"@{message.from_user.username} tritt der Gang bei")
+    send_message_to_admins(f"@{message.from_user.username} tritt der Gang bei", user_id)
     session.commit()
 
 
-@telegram_bot.message_handler(commands=["sources"])
+@telegram_bot.message_handler(commands=[Commands.sources.name])
 def sources(message: Message):
     chat_id = message.chat.id
 
@@ -62,7 +68,7 @@ def sources(message: Message):
     session.commit()
 
 
-@telegram_bot.message_handler(commands=["next"])
+@telegram_bot.message_handler(commands=[Commands.next.name])
 def next_interested_events(message: Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -80,11 +86,18 @@ def next_interested_events(message: Message):
         .order_by(Event.event_date.asc())
         .limit(limit)
     )
-    for event in session.scalars(stmt):
-        telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
+    events = session.scalars(stmt).all()
+    if len(events) == 0:
+        telegram_bot.send_message(
+            chat_id=chat_id,
+            text="Es gibt keine anstehenden Konzerte, die dich interessieren",
+        )
+    else:
+        for event in events:
+            telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
 
 
-@telegram_bot.message_handler(commands=["feature"])
+@telegram_bot.message_handler(commands=[Commands.feature.name])
 def feature(message: Message):
     user = session.get(User, message.from_user.id)
 
@@ -101,53 +114,11 @@ def feature(message: Message):
     telegram_bot.reply_to(message=message, text="Dein Feature-Wunsch wurde aufgenommen")
 
 
-class Command(TypedDict):
-    cmd: Callable[[Message], None]
-    description: str
-
-
-COMMANDS: dict[str, Command] = {
-    "start": {"cmd": start, "description": "Registrierung neuer Nutzer"},
-    "sources": {
-        "cmd": sources,
-        "description": "Konfiguration, von welchen Veranstaltern Du Events erhalten möchtest",
-    },
-    "next": {
-        "cmd": next_interested_events,
-        "description": "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen.",
-    },
-    "feature": {
-        "cmd": feature,
-        "description": "Schreibe ein Feature-Wunsch, der dir wichtig ist",
-    },
-}
-
-
-def execute_command(command: str, message: Message):
-    func = COMMANDS.get(command)
-    if func is None:
-        telegram_bot.reply_to(
-            message=message,
-            text=f"Dein Kommando ist unbekannt. Erlaubte Kommandos:\n"
-            + "\n".join(
-                [f"/{key}: {value["description"]}" for key, value in COMMANDS.items()]
-            ),
-        )
-        logger.warning(f"Unknown command from user: {command}")
-        return
-
-    logger.info(f"Executing command: /{command}")
-    func["cmd"](message)
-
-
-def handle_message(message: Message):
+@telegram_bot.message_handler()
+def false_message(message: Message):
     message_text = getattr(message, "text", "")
-    command = telebot.util.extract_command(message_text)
-    if command is not None:
-        execute_command(command, message)
-    else:
-        logger.warning(f"The user's message could not be interpreted: {message_text}")
-        telegram_bot.reply_to(
-            message=message,
-            text=f"Deine Nachricht konnte nicht interpretiert werden",
-        )
+    logger.warning(f"The user's message could not be interpreted: {message_text}")
+    telegram_bot.reply_to(
+        message=message,
+        text=f"Deine Nachricht konnte nicht interpretiert werden",
+    )
