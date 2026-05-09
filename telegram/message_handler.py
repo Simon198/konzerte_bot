@@ -2,7 +2,7 @@ from enum import Enum
 import logging
 
 from sqlalchemy import select
-from telebot.types import Message
+from telebot.types import Message, BotCommand
 
 from models.event import Event, Source
 from models.feature import Feature
@@ -122,3 +122,8 @@ def false_message(message: Message):
         message=message,
         text=f"Deine Nachricht konnte nicht interpretiert werden",
     )
+
+
+def setup_bot_commands():
+    bot_commands = [BotCommand(command.name, command.value) for command in Commands]
+    telegram_bot.set_my_commands(bot_commands)

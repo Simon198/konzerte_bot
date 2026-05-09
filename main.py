@@ -7,6 +7,7 @@ import scheduler
 import telegram
 
 try:
+    telegram.message_handler.setup_bot_commands()
     scheduler.run_scheduler_in_background()
     telegram.telegram_bot.infinity_polling()
 except:

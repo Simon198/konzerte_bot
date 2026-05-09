@@ -18,7 +18,7 @@
     - print the admission and beginn time
 - [x] /feature to allow the user to send a feature request to admin
 - [x] let bot run all the time
-- [ ] automatically update list of COMMANDS in botfather
+- [x] automatically update list of COMMANDS in botfather
 - [ ] create command to load next x unobserved events by the user
 - [ ] update description and commands in bot father
 - [ ] add LLM to add genre of music
