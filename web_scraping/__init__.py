@@ -2,7 +2,7 @@ import logging
 import time
 from datetime import datetime
 
-from sqlalchemy import delete, func
+from sqlalchemy import delete, func, select
 
 from models.event import Event
 from repository import session
@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 def _load_all_events():
-    logger.info("Start importing events")
     start_time = time.time()
     events: list[EventDTO] = []
 
@@ -48,7 +47,7 @@ def _load_all_events():
 
 def _insert_event(event_dto: EventDTO):
     event = Event(
-        id=event_dto.id,
+        dto_id=event_dto.id,
         source=event_dto.source,
         band=event_dto.band,
         city=event_dto.city,
@@ -150,7 +149,7 @@ def _update_event(event_dto: EventDTO, event: Event):
 
 
 def _insert_or_update_event(event_dto: EventDTO):
-    event = session.get(Event, event_dto.id)
+    event = session.scalar(select(Event).where(Event.dto_id == event_dto.id))
     if event is None:
         return _insert_event(event_dto)
     else:
@@ -159,6 +158,7 @@ def _insert_or_update_event(event_dto: EventDTO):
 
 def load_and_persist_events():
     try:
+        logger.info("Start webscraping events")
         for event_dto in _load_all_events():
             _insert_or_update_event(event_dto)
         session.flush()

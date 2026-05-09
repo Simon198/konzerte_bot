@@ -1,7 +1,8 @@
 import enum
 from datetime import date, datetime, time
+import uuid
 
-from sqlalchemy import Date, DateTime, Enum, String, Time
+from sqlalchemy import Date, DateTime, Enum, String, Time, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
@@ -20,7 +21,8 @@ source_enum = Enum(Source, name="source_enum")
 class Event(Base):
     __tablename__ = "events"
 
-    id: Mapped[str] = mapped_column(String(), primary_key=True)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
+    dto_id: Mapped[str] = mapped_column(String(), unique=True, nullable=False)
     source: Mapped[Source] = mapped_column(source_enum, nullable=False)
     band: Mapped[str] = mapped_column(String(), nullable=False)
     city: Mapped[str] = mapped_column(String(), nullable=False)
