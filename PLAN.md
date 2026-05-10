@@ -19,12 +19,12 @@
 - [x] /feature to allow the user to send a feature request to admin
 - [x] let bot run all the time
 - [x] automatically update list of COMMANDS in botfather
-- [ ] create command to load next x unobserved events by the user
-- [ ] update description and commands in bot father
-- [ ] add LLM to add genre of music
+- [x] create command to load next x unobserved events by the user
+- [x] update description and commands in bot father
+- [x] changelog to all users when new features arrive
 - [ ] check legal
-- [ ] add images to texts
-- [ ] changelog to all users when new features arrive
 - [ ] write systemctl service
 - [ ] deploy bot
+- [ ] add LLM to add genre of music
+- [ ] add images of bands
 - [ ] Select genre

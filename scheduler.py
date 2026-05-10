@@ -5,6 +5,7 @@ import schedule
 
 import telegram.remind_events
 import telegram.send_events
+from utils import TIMEZONE
 import web_scraping
 
 logger = logging.getLogger(__name__)
@@ -16,10 +17,8 @@ def _load_and_send_events():
 
 
 def run_scheduler():
-    schedule.every().day.at("09:00", "Europe/Berlin").do(
-        telegram.remind_events.remind_events
-    )
-    schedule.every().day.at("17:00", "Europe/Berlin").do(_load_and_send_events)
+    schedule.every().day.at("09:00", TIMEZONE).do(telegram.remind_events.remind_events)
+    schedule.every().day.at("17:00", TIMEZONE).do(_load_and_send_events)
     logger.info("Scheduler started successfully")
 
     while True:

@@ -1,16 +1,18 @@
 from enum import Enum
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import desc, select
 from telebot.types import Message, BotCommand
 
+from models.changelog import Changelog
 from models.event import Event, Source
 from models.feature import Feature
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
+from send_changelog import read_changelog
 from .send_events import send_events_to_user
-from .send_message_to_admins import send_message_to_admins
+from .prodcast_message import prodcast_message_to_admins
 
 from . import telegram_bot
 
@@ -23,6 +25,7 @@ class Commands(Enum):
     go = "Lädt die nächsten n Konzerte, über die Du noch nicht informiert wurdest. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
     next = "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
     feature = "Schreibe ein Feature-Wunsch, der dir wichtig ist"
+    changelog = "Erhalte den letzten Changelog-Eintrag"
 
 
 @telegram_bot.message_handler(commands=[Commands.start.name])
@@ -39,7 +42,9 @@ def start(message: Message):
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
-    send_message_to_admins(f"@{message.from_user.username} tritt der Gang bei", user_id)
+    prodcast_message_to_admins(
+        f"@{message.from_user.username} tritt der Gang bei", user_id
+    )
     session.commit()
 
 
@@ -130,6 +135,20 @@ def feature(message: Message):
     session.add(feature)
     session.commit()
     telegram_bot.reply_to(message=message, text="Dein Feature-Wunsch wurde aufgenommen")
+
+
+@telegram_bot.message_handler(commands=[Commands.changelog.name])
+def changelog(message: Message):
+    changelog = session.scalar(
+        select(Changelog).order_by(desc(Changelog.sent_date)).limit(1)
+    )
+    if changelog is not None:
+        answer = read_changelog(changelog)
+        telegram_bot.reply_to(message=message, text=answer, parse_mode="HTML")
+    else:
+        telegram_bot.reply_to(
+            message=message, text="Es existieren noch keine Changelog-Einträge"
+        )
 
 
 @telegram_bot.message_handler()
