@@ -22,7 +22,9 @@
 - [x] create command to load next x unobserved events by the user
 - [x] update description and commands in bot father
 - [x] changelog to all users when new features arrive
+- [ ] extract webscraping to private repo
 - [ ] check legal
+- [ ] update start message
 - [ ] write systemctl service
 - [ ] deploy bot
 - [ ] add LLM to add genre of music
