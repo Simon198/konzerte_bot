@@ -22,6 +22,10 @@
 - [x] create command to load next x unobserved events by the user
 - [x] update description and commands in bot father
 - [x] changelog to all users when new features arrive
+- [ ] send only one event after /start
+      everytime the users clicks one of the buttons, the next event is sent
+      if new events are found, user receives "New events are found" and a new recommendation
+- [ ] Default of /next should be all interested concerts
 - [ ] extract webscraping to private repo
 - [ ] check legal
 - [ ] update start message
