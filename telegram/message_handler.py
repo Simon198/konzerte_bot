@@ -9,7 +9,8 @@ from models.feature import Feature
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
-from telegram.send_message_to_admins import send_message_to_admins
+from .send_events import send_events_to_user
+from .send_message_to_admins import send_message_to_admins
 
 from . import telegram_bot
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 class Commands(Enum):
     start = "Registrierung neuer Nutzer"
     sources = "Konfiguration, von welchen Veranstaltern Du Events erhalten möchtest"
+    go = "Lädt die nächsten n Konzerte, über die Du noch nicht informiert wurdest. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
     next = "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
     feature = "Schreibe ein Feature-Wunsch, der dir wichtig ist"
 
@@ -74,7 +76,7 @@ def next_interested_events(message: Message):
     chat_id = message.chat.id
 
     try:
-        limit = int(message.text.split("/next")[1])
+        limit = int(message.text.split(f"/{Commands.next.name}")[1])
     except:
         limit = 5
 
@@ -95,6 +97,22 @@ def next_interested_events(message: Message):
     else:
         for event in events:
             telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
+
+
+@telegram_bot.message_handler(commands=[Commands.go.name])
+def go(message: Message):
+    try:
+        limit = int(message.text.split(f"/{Commands.go.name}")[1])
+    except:
+        limit = 5
+
+    user_id = message.from_user.id
+    user = session.get(User, user_id)
+    if user is None:
+        logger.exception(f"Der User {user_id} konnte nicht geladen werden")
+        return
+
+    send_events_to_user(user, limit)
 
 
 @telegram_bot.message_handler(commands=[Commands.feature.name])

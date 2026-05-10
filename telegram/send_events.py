@@ -12,7 +12,7 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-def send_events_to_user(user: User):
+def send_events_to_user(user: User, limit: int = 5):
     stmt = (
         select(Event)
         .where(
@@ -33,7 +33,7 @@ def send_events_to_user(user: User):
             )
         )
         .order_by(Event.event_date.is_(None), Event.event_date, Event.beginn)
-        .limit(5)
+        .limit(limit)
     )
 
     events = session.scalars(stmt).all()
