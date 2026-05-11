@@ -12,7 +12,7 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-def send_events_to_user(user: User, limit: int = 5):
+def send_events_to_user(user: User, limit: int = 1):
     stmt = (
         select(Event)
         .where(
@@ -55,17 +55,3 @@ def send_events_to_user(user: User, limit: int = 5):
         observed_event = Observed(user=user, event_id=event.id, message_id=message.id)
         user.observed.append(observed_event)
         session.commit()
-
-
-def send_events():
-    try:
-        logger.info("Starting sending events")
-        for user in session.scalars(select(User)):
-            send_events_to_user(user)
-        logger.info("Events have been successfully sent")
-    except:
-        logger.exception("Sending events failed")
-
-
-if __name__ == "__main__":
-    send_events()

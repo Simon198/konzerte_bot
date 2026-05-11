@@ -11,21 +11,13 @@ from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
 from send_changelog import read_changelog
+from .command import Commands
 from .send_events import send_events_to_user
 from .prodcast_message import prodcast_message_to_admins
 
 from . import telegram_bot
 
 logger = logging.getLogger(__name__)
-
-
-class Commands(Enum):
-    start = "Registrierung neuer Nutzer"
-    sources = "Konfiguration, von welchen Veranstaltern Du Events erhalten möchtest"
-    go = "Lädt die nächsten n Konzerte, über die Du noch nicht informiert wurdest. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
-    next = "Lädt die nächsten n Konzerte, die Dich interessieren. Wenn keine Zahl nach dem Kommando steht, werden die nächsten 5 Konzerte geladen."
-    feature = "Schreibe ein Feature-Wunsch, der dir wichtig ist"
-    changelog = "Erhalte den letzten Changelog-Eintrag"
 
 
 @telegram_bot.message_handler(commands=[Commands.start.name])
@@ -46,6 +38,7 @@ def start(message: Message):
         f"@{message.from_user.username} tritt der Gang bei", user_id
     )
     session.commit()
+    send_events_to_user(db_user, 1)
 
 
 @telegram_bot.message_handler(commands=[Commands.sources.name])
@@ -109,7 +102,7 @@ def go(message: Message):
     try:
         limit = int(message.text.split(f"/{Commands.go.name}")[1])
     except:
-        limit = 5
+        limit = 1
 
     user_id = message.from_user.id
     user = session.get(User, user_id)

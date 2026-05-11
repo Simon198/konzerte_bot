@@ -4,12 +4,12 @@ from datetime import datetime
 
 from sqlalchemy import delete, func, select
 
-from models.event import Event
+from models.event import Event, Source
 from repository import session
 from telegram import telegram_bot
-
 from . import batschkapp, festhalle, jahrhunderthalle, schlachthof
 from .dto import EventDTO
+from models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -157,13 +157,31 @@ def _insert_or_update_event(event_dto: EventDTO):
 def load_and_persist_events():
     try:
         logger.info("Start webscraping events")
+        new_events: dict[Source, int] = {}
         for event_dtos in _load_all_events():
             for event_dto in event_dtos:
-                _insert_or_update_event(event_dto)
+                event = _insert_or_update_event(event_dto)
+                if event.id is None:
+                    if event.source not in new_events:
+                        new_events[event.source] = 0
+                    new_events[event.source] += 1
         session.flush()
         session.execute(delete(Event).where(Event.event_date < func.current_date()))
         session.commit()
         logger.info("Events have been successfully stored")
+
+        users = session.scalars(select(User))
+        for user in users:
+            new_events_for_user = 0
+            for source, count in new_events.items():
+                if source not in (us.source for us in user.source_unsubscriptions):
+                    new_events_for_user += count
+            if new_events_for_user == 0:
+                continue
+            telegram_bot.send_message(
+                user.chat_id,
+                f"Es gibt {new_events_for_user} neue Events in Lokationen, die Dich interessieren",
+            )
     except:
         logger.exception("An error occurred while loading the events")
 
