@@ -27,6 +27,7 @@
       if new events are found, user receives "New events are found" and a new recommendation
 - [x] Default of /next should be all interested concerts
 - [ ] extract webscraping to private repo
+- [ ] fix Batschkapp webscraper
 - [ ] check legal
 - [ ] update start message
 - [ ] write systemctl service
