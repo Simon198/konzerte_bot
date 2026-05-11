@@ -76,7 +76,7 @@ def next_interested_events(message: Message):
     try:
         limit = int(message.text.split(f"/{Commands.next.name}")[1])
     except:
-        limit = 5
+        limit = 100
 
     stmt = (
         select(Event)

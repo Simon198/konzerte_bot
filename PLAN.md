@@ -25,7 +25,7 @@
 - [x] send only one event after /start
       everytime the users clicks one of the buttons, the next event is sent
       if new events are found, user receives "New events are found" and a new recommendation
-- [ ] Default of /next should be all interested concerts
+- [x] Default of /next should be all interested concerts
 - [ ] extract webscraping to private repo
 - [ ] check legal
 - [ ] update start message
