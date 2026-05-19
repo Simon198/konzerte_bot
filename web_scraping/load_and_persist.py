@@ -1,42 +1,47 @@
 import logging
 import time
 from datetime import datetime
-
 from sqlalchemy import delete, func, select
+from pathlib import Path
+import importlib
 
 from models.event import Event, Source
 from repository import session
 from telegram import telegram_bot
-from .scrapers import batschkapp, festhalle, jahrhunderthalle
-from .scrapers import schlachthof
 from .dto import EventDTO
 from models.user import User
 
 logger = logging.getLogger(__name__)
 
+SCRAPERS_DIR = "scrapers"
+scrapers_dir = Path(__file__).parent / SCRAPERS_DIR
+
 
 def _load_all_events():
     start_time = time.time()
 
-    try:
-        yield batschkapp.load_events()
-    except:
-        logging.exception("The events of Batschkapp could not be loaded")
-
-    try:
-        yield festhalle.load_events()
-    except:
-        logging.exception("The events of Festhalle could not be loaded")
-
-    try:
-        yield jahrhunderthalle.load_events()
-    except:
-        logging.exception("The events of Jahrhunderthalle could not be loaded")
-
-    try:
-        yield schlachthof.load_events()
-    except:
-        logging.exception("The events of Schlachthof could not be loaded")
+    for script in scrapers_dir.glob("*.py"):
+        if script.name not in ["__init__.py"]:
+            module_name = script.stem
+            try:
+                module = importlib.import_module(
+                    package=f"{__package__}.{SCRAPERS_DIR}", name=f".{module_name}"
+                )
+                if hasattr(module, "load_events"):
+                    try:
+                        yield module.load_events()
+                    except:
+                        logging.exception(
+                            f"The events of {module_name} could not be loaded"
+                        )
+                else:
+                    raise ValueError(
+                        f'The module {module_name} does not have a "load_events" function'
+                    )
+            except ImportError:
+                raise ValueError(
+                    f"The module {module_name} could not be loaded correctly"
+                )
 
     end_time = time.time()
     logger.info(
