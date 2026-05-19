@@ -28,6 +28,7 @@
 - [x] Default of /next should be all interested concerts
 - [x] extract webscraping to private repo
 - [ ] fix Batschkapp webscraper
+- [ ] add command to check pairings with other users for admin
 - [ ] check legal/license
 - [ ] update start message
 - [ ] write systemctl service
