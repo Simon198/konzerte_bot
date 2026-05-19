@@ -26,12 +26,13 @@
       everytime the users clicks one of the buttons, the next event is sent
       if new events are found, user receives "New events are found" and a new recommendation
 - [x] Default of /next should be all interested concerts
-- [ ] extract webscraping to private repo
+- [x] extract webscraping to private repo
 - [ ] fix Batschkapp webscraper
-- [ ] check legal
+- [ ] check legal/license
 - [ ] update start message
 - [ ] write systemctl service
 - [ ] deploy bot
 - [ ] add LLM to add genre of music
 - [ ] add images of bands
 - [ ] Select genre
+- [ ] Make repository public
