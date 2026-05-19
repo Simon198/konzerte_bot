@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from models.event import Source
 from progressbar import tqdm_admin_telegram
 
-from .dto import EventDTO
+from ..dto import EventDTO
 
 BASE_URL = "https://www.myticket-jahrhunderthalle.de"
 

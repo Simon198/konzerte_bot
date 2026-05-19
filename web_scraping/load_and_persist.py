@@ -7,7 +7,8 @@ from sqlalchemy import delete, func, select
 from models.event import Event, Source
 from repository import session
 from telegram import telegram_bot
-from . import batschkapp, festhalle, jahrhunderthalle, schlachthof
+from .scrapers import batschkapp, festhalle, jahrhunderthalle
+from .scrapers import schlachthof
 from .dto import EventDTO
 from models.user import User
 
