@@ -1,0 +1,3 @@
+[submodule "web_scraping/scrapers"]
+	path = web_scraping/scrapers
+	url = git@github.com:Simon198/konzerte_bot_scrapers.git
