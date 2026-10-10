@@ -209,3 +209,4 @@ __marimo__/
 # Local DB
 concerts.db
 logs
+concerts.db-journal

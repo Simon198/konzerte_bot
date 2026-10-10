@@ -33,7 +33,7 @@ def _load_all_events():
                     try:
                         yield module.load_events()
                     except:
-                        logging.exception(
+                        logger.exception(
                             f"The events of {module_name} could not be loaded"
                         )
                 else:
