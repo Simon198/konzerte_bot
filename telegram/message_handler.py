@@ -15,6 +15,7 @@ from send_changelog import read_changelog
 from . import telegram_bot
 from .command import Commands
 from .consent import get_consent_keyboard, get_consent_text, get_datenschutz_keyboard
+from .mydata import send_user_data
 from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
@@ -157,6 +158,18 @@ def datenschutz(message: Message):
         text="Hier findest du die Datenschutzerklärung:",
         reply_markup=get_datenschutz_keyboard(),
     )
+
+
+@telegram_bot.message_handler(commands=[Commands.mydata.name])
+def mydata(message: Message):
+    user = session.get(User, message.from_user.id)
+    if user is None:
+        telegram_bot.reply_to(
+            message=message,
+            text="Du bist bei mir nicht registriert. Es gibt keine gespeicherten Daten.",
+        )
+        return
+    send_user_data(user)
 
 
 @telegram_bot.message_handler(commands=[Commands.pairings.name])

@@ -29,11 +29,12 @@
 - [x] extract webscraping to private repo
 - [x] fix Batschkapp webscraper
 - [x] add command to check pairings with other users for admin
-- [ ] check legal/license
+- [x] check legal/license
 - [ ] update start message
+- [ ] update commands in the bot father on start up
 - [ ] write systemctl service
 - [ ] deploy bot
 - [ ] add LLM to add genre of music
-- [ ] add images of bands
-- [ ] Select genre
-- [ ] Make repository public
+- [ ] add images of bands in the events
+- [ ] Add "select genre" command
+- [x] Make repository public

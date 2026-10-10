@@ -13,6 +13,8 @@ Verantwortlicher im Sinne der DSGVO ist:
 **Simon Heinrich**  
 **@unst0ppabel**
 
+(Impressum: siehe `IMPRESSUM.md` im Projekt-Repository)
+
 ## 2. Allgemeines
 
 Der Bot informiert über Konzerte an ausgewählten Veranstaltungsorten und sendet auf

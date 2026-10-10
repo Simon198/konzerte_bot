@@ -9,5 +9,6 @@ class Commands(Enum):
     feature = "Schreibe ein Feature-Wunsch, der dir wichtig ist"
     changelog = "Erhalte den letzten Changelog-Eintrag"
     datenschutz = "Zeigt die Datenschutzerklärung"
+    mydata = "Zeigt alle über dich gespeicherten Daten"
     pairings = "Zeigt Konzerte, für die sich mehrere Nutzer interessieren (nur für Admins)"
     delete = "Löscht alle deine gespeicherten Daten vollständig"

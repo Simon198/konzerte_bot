@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from models.event import Event, Source
 from models.user import User
@@ -177,7 +177,7 @@ def load_and_persist_events():
         # Delete past events via the ORM so the cascade configured on
         # Event.interest / Event.observed removes the dependent rows automatically.
         past_events = session.scalars(
-            select(Event).where(Event.event_date < func.current_date())
+            select(Event).where(or_(Event.event_date.is_(None), Event.event_date < func.current_date()))
         ).all()
         for event in past_events:
             session.delete(event)
