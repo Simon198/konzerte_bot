@@ -1,11 +1,12 @@
 import logging
 import threading
 import time
+
 import schedule
 
 import telegram.remind_events
-from utils import TIMEZONE
 import web_scraping
+from utils import TIMEZONE
 
 logger = logging.getLogger(__name__)
 
