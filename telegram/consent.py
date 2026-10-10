@@ -16,6 +16,8 @@ def get_consent_text() -> str:
         "Damit ich dir Nachrichten schicken darf, verarbeitet Telegram deine Daten auch "
         "auf Servern außerhalb der EU (u. a. in den USA). Außerdem informiere ich den "
         "Administrator über neue Nutzer und deine markierten Interessen.\n\n"
+        "Der Quellcode ist öffentlich auf GitHub verfügbar: "
+        "https://github.com/Simon198/konzerte_bot/\n\n"
         "Bitte lies die Datenschutzerklärung und bestätige mit „Ich stimme zu“."
     )
 

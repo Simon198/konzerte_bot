@@ -30,7 +30,7 @@
 - [x] fix Batschkapp webscraper
 - [x] add command to check pairings with other users for admin
 - [x] check legal/license
-- [ ] update start message
+- [x] update start message
 - [ ] update commands in the bot father on start up
 - [ ] write systemctl service
 - [ ] deploy bot
