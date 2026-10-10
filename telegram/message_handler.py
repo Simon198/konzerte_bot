@@ -27,10 +27,11 @@ def start(message: Message):
 
     db_user = session.get(User, user_id)
     if db_user is None:
-        db_user = User(id=user_id, chat_id=chat_id)
+        db_user = User(id=user_id, chat_id=chat_id, username=message.from_user.username)
         session.add(db_user)
     else:
         db_user.chat_id = chat_id
+        db_user.username = message.from_user.username
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
@@ -142,6 +143,53 @@ def changelog(message: Message):
         telegram_bot.reply_to(
             message=message, text="Es existieren noch keine Changelog-Einträge"
         )
+
+
+@telegram_bot.message_handler(commands=[Commands.pairings.name])
+def pairings(message: Message):
+    user = session.get(User, message.from_user.id)
+    if user is None or not user.is_admin:
+        logger.warning(
+            f"User {message.from_user.id} tried to use /{Commands.pairings.name} without admin rights"
+        )
+        telegram_bot.reply_to(
+            message=message, text="Du hast keine Berechtigung für diesen Befehl"
+        )
+        return
+
+    admin_interested_event_ids = select(Interest.event_id).where(
+        Interest.user_id == user.id
+    )
+    rows = session.execute(
+        select(Event, User.id, User.username)
+        .join(Interest, Interest.event_id == Event.id)
+        .join(User, User.id == Interest.user_id)
+        .where(Event.id.in_(admin_interested_event_ids))
+        .order_by(Event.event_date, Event.band)
+    ).all()
+
+    other_usernames_by_event: dict = {}
+    for event, user_id, username in rows:
+        if user_id == user.id:
+            continue
+        if event.id not in other_usernames_by_event:
+            other_usernames_by_event[event.id] = (event, [])
+        name = f"@{username}" if username else f"Nutzer {user_id}"
+        other_usernames_by_event[event.id][1].append(name)
+
+    pairings = list(other_usernames_by_event.values())
+
+    if len(pairings) == 0:
+        telegram_bot.send_message(
+            chat_id=message.chat.id,
+            text="Es gibt keine Konzerte, für die sich neben Dir noch andere Nutzer interessieren",
+        )
+        return
+
+    lines = ["Konzerte, an denen Du und andere Nutzer interessiert seid:"]
+    for event, usernames in pairings:
+        lines.append(f"{event.get_german_date()} - {event.band}: {', '.join(usernames)}")
+    telegram_bot.send_message(chat_id=message.chat.id, text="\n".join(lines))
 
 
 @telegram_bot.message_handler()

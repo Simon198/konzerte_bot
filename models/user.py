@@ -1,6 +1,6 @@
 from typing import List
 
-from sqlalchemy import Boolean, ForeignKey, Integer
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.event import Event, Source, source_enum
@@ -13,6 +13,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(Integer(), primary_key=True)
     chat_id: Mapped[int] = mapped_column(Integer(), unique=True, nullable=False)
+    username: Mapped[str | None] = mapped_column(String(), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean(), default=False)
     source_unsubscriptions: Mapped[list["SourceUnsubscription"]] = relationship(
         back_populates="user",
