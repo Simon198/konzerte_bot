@@ -1,8 +1,8 @@
-from enum import Enum
 import logging
+from enum import Enum
 
 from sqlalchemy import desc, select
-from telebot.types import Message, BotCommand
+from telebot.types import BotCommand, Message
 
 from models.changelog import Changelog
 from models.event import Event, Source
@@ -11,11 +11,11 @@ from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
 from send_changelog import read_changelog
-from .command import Commands
-from .send_events import send_events_to_user
-from .prodcast_message import prodcast_message_to_admins
 
 from . import telegram_bot
+from .command import Commands
+from .prodcast_message import prodcast_message_to_admins
+from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -192,13 +192,39 @@ def pairings(message: Message):
     telegram_bot.send_message(chat_id=message.chat.id, text="\n".join(lines))
 
 
+@telegram_bot.message_handler(commands=[Commands.delete.name])
+def delete_user(message: Message):
+    user_id = message.from_user.id
+    user = session.get(User, user_id)
+    if user is None:
+        telegram_bot.send_message(
+            chat_id=message.chat.id,
+            text="Du bist bei mir nicht registriert. Es gibt nichts zu löschen.",
+        )
+        return
+
+    # Deleting the user cascades to all related records (Interest, Observed,
+    # SourceUnsubscription, Feature) via the relationships configured on User.
+    session.delete(user)
+    session.commit()
+    logger.info(f"User {user_id} hat seine Daten gelöscht")
+
+    telegram_bot.send_message(
+        chat_id=message.chat.id,
+        text="Deine Daten wurden vollständig gelöscht. Du kannst dich jederzeit mit /start erneut registrieren.",
+    )
+
+
 @telegram_bot.message_handler()
 def false_message(message: Message):
     message_text = getattr(message, "text", "")
-    logger.warning(f"The user's message could not be interpreted: {message_text}")
+    if message_text.startswith("/"):
+        logger.warning(f"Unbekanntes Kommando erhalten: {message_text.split()[0]}")
+    else:
+        logger.warning("Eine Nachricht konnte nicht interpretiert werden")
     telegram_bot.reply_to(
         message=message,
-        text=f"Deine Nachricht konnte nicht interpretiert werden",
+        text="Deine Nachricht konnte nicht interpretiert werden",
     )
 
 
