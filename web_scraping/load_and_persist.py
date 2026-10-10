@@ -1,15 +1,17 @@
+import importlib
 import logging
 import time
 from datetime import datetime
-from sqlalchemy import delete, func, select
 from pathlib import Path
-import importlib
+
+from sqlalchemy import delete, func, select
 
 from models.event import Event, Source
+from models.user import User
 from repository import session
 from telegram import telegram_bot
+
 from .dto import EventDTO
-from models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -186,7 +188,7 @@ def load_and_persist_events():
                 continue
             telegram_bot.send_message(
                 user.chat_id,
-                f"Es gibt {new_events_for_user} neue Events in Lokationen, die Dich interessieren",
+                f"Es gibt {new_events_for_user} neue Events",
             )
     except:
         logger.exception("An error occurred while loading the events")
