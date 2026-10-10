@@ -14,7 +14,7 @@ from send_changelog import read_changelog
 
 from . import telegram_bot
 from .command import Commands
-from .prodcast_message import prodcast_message_to_admins
+from .consent import get_consent_keyboard, get_consent_text, get_datenschutz_keyboard
 from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
@@ -32,13 +32,18 @@ def start(message: Message):
     else:
         db_user.chat_id = chat_id
         db_user.username = message.from_user.username
+    session.commit()
+
+    if not db_user.consent_given:
+        telegram_bot.send_message(
+            chat_id=chat_id,
+            text=get_consent_text(),
+            reply_markup=get_consent_keyboard(),
+        )
+        return
 
     text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
     telegram_bot.send_message(chat_id=chat_id, text=text)
-    prodcast_message_to_admins(
-        f"@{message.from_user.username} tritt der Gang bei", user_id
-    )
-    session.commit()
     send_events_to_user(db_user, 1)
 
 
@@ -143,6 +148,15 @@ def changelog(message: Message):
         telegram_bot.reply_to(
             message=message, text="Es existieren noch keine Changelog-Einträge"
         )
+
+
+@telegram_bot.message_handler(commands=[Commands.datenschutz.name])
+def datenschutz(message: Message):
+    telegram_bot.reply_to(
+        message=message,
+        text="Hier findest du die Datenschutzerklärung:",
+        reply_markup=get_datenschutz_keyboard(),
+    )
 
 
 @telegram_bot.message_handler(commands=[Commands.pairings.name])

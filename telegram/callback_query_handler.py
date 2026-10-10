@@ -1,17 +1,20 @@
 import logging
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, select
 from telebot.types import CallbackQuery
 
 from models.event import Event
 from models.user import Interest, User
 from repository import session
-from .send_events import send_events_to_user
-from .callback_data import CallbackData
-from .prodcast_message import prodcast_message_to_admins
+from utils import TIMEZONE
 
 from . import telegram_bot
+from .callback_data import CallbackData
+from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE
+from .prodcast_message import prodcast_message_to_admins
+from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +49,34 @@ def handle_callback_query(callback_query: CallbackQuery):
             if event in user.interest:
                 user.interest.remove(event)
             send_events_to_user(user, limit=1)
+        elif callback_action == CallbackData.CONSENT.value:
+            if callback_value == ACCEPT:
+                if user is None:
+                    logger.warning(f"Consent callback from unknown user {user_id}")
+                    telegram_bot.send_message(
+                        chat_id=chat_id, text="Bitte starte mich zuerst mit /start."
+                    )
+                else:
+                    user.consent_given = True
+                    user.consent_date = datetime.now(tz=ZoneInfo(TIMEZONE))
+                    user.consent_version = DATENSCHUTZ_VERSION
+                    prodcast_message_to_admins(
+                        f"@{callback_query.from_user.username} tritt der Gang bei",
+                        user_id,
+                    )
+                    text = "Willkommen" + (", meine Hoheit" if user.is_admin else "")
+                    telegram_bot.send_message(chat_id=chat_id, text=text)
+                    send_events_to_user(user, 1)
+            elif callback_value == DECLINE:
+                telegram_bot.send_message(
+                    chat_id=chat_id,
+                    text="Ohne deine Einwilligung kann ich dir keine Nachrichten senden. "
+                    "Deine Daten kannst du jederzeit mit /delete löschen.",
+                )
+            else:
+                logger.warning(
+                    f"An unknown consent callback value has been sent by the user: {callback_value}"
+                )
         else:
             logger.warning(
                 f"An unknown query callback action has been sent by the user: {callback_action}"

@@ -1,6 +1,7 @@
+from datetime import datetime
 from typing import List
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.event import Event, Source, source_enum
@@ -15,6 +16,13 @@ class User(Base):
     chat_id: Mapped[int] = mapped_column(Integer(), unique=True, nullable=False)
     username: Mapped[str | None] = mapped_column(String(), nullable=True)
     is_admin: Mapped[bool] = mapped_column(Boolean(), default=False)
+    consent_given: Mapped[bool] = mapped_column(
+        Boolean(), default=False, nullable=False
+    )
+    consent_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consent_version: Mapped[str | None] = mapped_column(String(), nullable=True)
     source_unsubscriptions: Mapped[list["SourceUnsubscription"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
