@@ -46,8 +46,12 @@ def handle_callback_query(callback_query: CallbackQuery):
             send_events_to_user(user, limit=1)
         elif callback_action == CallbackData.NOT_INTERESTED.value:
             event = session.get(Event, uuid.UUID(callback_value))
-            if event in user.interest:
-                user.interest.remove(event)
+            # ``user.interest`` holds ``Interest`` objects, not ``Event``
+            # objects, so remove the matching ``Interest`` explicitly.
+            for interest in user.interest:
+                if interest.event_id == event.id:
+                    user.interest.remove(interest)
+                    break
             send_events_to_user(user, limit=1)
         elif callback_action == CallbackData.CONSENT.value:
             if callback_value == ACCEPT:

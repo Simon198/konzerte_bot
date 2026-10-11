@@ -52,6 +52,6 @@ def send_events_to_user(user: User, limit: int = 1):
             chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
         )
 
-        observed_event = Observed(user=user, event_id=event.id, message_id=message.id)
+        observed_event = Observed(event_id=event.id, message_id=message.id)
         user.observed.append(observed_event)
         session.commit()

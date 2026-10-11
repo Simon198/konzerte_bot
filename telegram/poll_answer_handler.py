@@ -28,3 +28,4 @@ def handle_source_poll_answer(poll_answer: PollAnswer):
     session.execute(stmt)
     # add new unsubscriptions
     session.add_all(source_unsubscriptions)
+    session.commit()
