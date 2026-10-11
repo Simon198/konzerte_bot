@@ -8,17 +8,24 @@ from models.user import SourceUnsubscription
 from repository import session
 
 
+def _sources_to_unsubscribe(poll_options, selected_option_ids) -> set[Source]:
+    """Return the sources the user did *not* select in the poll (pure)."""
+    selected = {
+        poll_option.source
+        for poll_option in poll_options
+        if poll_option.id in selected_option_ids
+    }
+    return set(Source) - selected
+
+
 @telegram_bot.poll_answer_handler()
-def handle_source_poll_answer(poll_answer: PollAnswer):
+def handle_source_poll_answer(poll_answer: PollAnswer):  # pragma: no cover - DB storage
     user_id = poll_answer.user.id
 
     poll = session.get(Poll, poll_answer.poll_id)
-    sources = set(
-        poll_option.source
-        for poll_option in poll.poll_options
-        if poll_option.id in poll_answer.option_ids
+    sources_to_unsubscribe = _sources_to_unsubscribe(
+        poll.poll_options, poll_answer.option_ids
     )
-    sources_to_unsubscribe = set(Source) - sources
     source_unsubscriptions = [
         SourceUnsubscription(source=source, user_id=user_id)
         for source in sources_to_unsubscribe

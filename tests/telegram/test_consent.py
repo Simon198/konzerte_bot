@@ -8,6 +8,7 @@ from telegram.consent import (
     get_consent_keyboard,
     get_consent_text,
     get_datenschutz_keyboard,
+    get_welcome_text,
 )
 
 
@@ -40,3 +41,11 @@ def test_datenschutz_keyboard_structure():
     rows = markup.keyboard
     assert rows[0][0].text == "Datenschutzerklärung öffnen"
     assert rows[0][0].url == DATENSCHUTZ_URL
+
+
+def test_welcome_text_for_regular_user():
+    assert get_welcome_text() == "Willkommen"
+
+
+def test_welcome_text_for_admin():
+    assert get_welcome_text(is_admin=True) == "Willkommen, meine Hoheit"

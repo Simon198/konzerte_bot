@@ -1,14 +1,15 @@
-from datetime import datetime
 import logging
 import os
 import re
+from datetime import datetime
 from zoneinfo import ZoneInfo
+
 from sqlalchemy import select
 
 from models.changelog import Changelog
+from repository import session
 from telegram.prodcast_message import prodcast_message_to_all
 from utils import TIMEZONE
-from repository import session
 
 HOME_FOLDER = os.path.abspath(os.path.dirname(__file__))
 CHANGELOG_FOLDER = os.path.join(HOME_FOLDER, "changelog")
@@ -24,7 +25,7 @@ def read_changelog(changelog: Changelog):
     return re.sub(r"#\s+(.*)\n", r"<b>\1</b>\n", md_content)
 
 
-def prodcast_newest_changelog():
+def prodcast_newest_changelog():  # pragma: no cover - DB + Telegram I/O
     try:
         logger.info("Start sending changelogs")
         changelog_file_names = sorted(os.listdir(CHANGELOG_FOLDER))

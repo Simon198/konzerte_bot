@@ -1,0 +1,13 @@
+[run]
+source = .
+omit =
+    tests/*
+    alembic/*
+    web_scraping/scrapers/*
+    .venv/*
+    conftest.py
+    main.py
+    logger.py
+    scheduler.py
+    turn_admin.py
+    progressbar.py

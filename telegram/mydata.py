@@ -108,12 +108,15 @@ def _build_summary(user: User) -> str:
     return "\n".join(lines)
 
 
-def send_user_data(user: User) -> None:
+def _build_json_bytes(user: User) -> bytes:
+    """Serialize the user's data to pretty-printed JSON bytes (pure)."""
+    return json.dumps(build_user_data(user), ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def send_user_data(user: User) -> None:  # pragma: no cover - Telegram I/O
     """Send a readable summary (Art. 15) and a machine-readable JSON (Art. 20)."""
     summary = _build_summary(user)
-    json_bytes = json.dumps(
-        build_user_data(user), ensure_ascii=False, indent=2
-    ).encode("utf-8")
+    json_bytes = _build_json_bytes(user)
 
     telegram_bot.send_message(chat_id=user.chat_id, text=summary)
     telegram_bot.send_document(

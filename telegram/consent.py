@@ -22,6 +22,11 @@ def get_consent_text() -> str:
     )
 
 
+def get_welcome_text(is_admin: bool = False) -> str:
+    """Build the welcome message shown after registration / consent (pure)."""
+    return "Willkommen" + (", meine Hoheit" if is_admin else "")
+
+
 def get_consent_keyboard() -> InlineKeyboardMarkup:
     markup = InlineKeyboardMarkup()
     markup.add(InlineKeyboardButton(text="Datenschutzerklärung", url=DATENSCHUTZ_URL))

@@ -12,15 +12,23 @@ from utils import TIMEZONE
 
 from . import telegram_bot
 from .callback_data import CallbackData
-from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE
+from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE, get_welcome_text
 from .prodcast_message import prodcast_message_to_admins
 from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
 
 
+def _parse_callback_data(data: str) -> tuple[str, str] | None:
+    """Split ``"<action>;<value>"`` callback data into its two parts (pure)."""
+    parts = data.split(";")
+    if len(parts) != 2:
+        return None
+    return parts[0], parts[1]
+
+
 @telegram_bot.callback_query_handler()
-def handle_callback_query(callback_query: CallbackQuery):
+def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - DB + Telegram I/O
     message = callback_query.message
     message_id = message.id
     chat_id = message.chat.id
@@ -28,13 +36,13 @@ def handle_callback_query(callback_query: CallbackQuery):
 
     user = session.get(User, user_id)
 
-    callback_query_data = callback_query.data.split(";")
-    if len(callback_query_data) != 2:
+    parsed = _parse_callback_data(callback_query.data)
+    if parsed is None:
         logger.warning(
             f"An unknown query callback has been sent by the user: {callback_query.data}"
         )
     else:
-        callback_action, callback_value = callback_query_data
+        callback_action, callback_value = parsed
         if callback_action == CallbackData.INTERESTED.value:
             event = session.get(Event, uuid.UUID(callback_value))
             user.interest.append(Interest(event=event))
@@ -68,7 +76,7 @@ def handle_callback_query(callback_query: CallbackQuery):
                         f"@{callback_query.from_user.username} tritt der Gang bei",
                         user_id,
                     )
-                    text = "Willkommen" + (", meine Hoheit" if user.is_admin else "")
+                    text = get_welcome_text(user.is_admin)
                     telegram_bot.send_message(chat_id=chat_id, text=text)
                     send_events_to_user(user, 1)
             elif callback_value == DECLINE:

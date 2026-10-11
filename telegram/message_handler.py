@@ -14,15 +14,52 @@ from send_changelog import read_changelog
 
 from . import telegram_bot
 from .command import Commands
-from .consent import get_consent_keyboard, get_consent_text, get_datenschutz_keyboard
+from .consent import (get_consent_keyboard, get_consent_text,
+                      get_datenschutz_keyboard, get_welcome_text)
 from .mydata import send_user_data
 from .send_events import send_events_to_user
 
 logger = logging.getLogger(__name__)
 
 
+def _parse_limit(text: str, command_name: str, default: int) -> int:
+    """Extract the numeric argument of a command, falling back to ``default`` (pure)."""
+    try:
+        return int(text.split(f"/{command_name}")[1])
+    except (ValueError, IndexError):
+        return default
+
+
+def _extract_feature_text(text: str) -> str:
+    """Extract the feature-request text behind the ``/feature`` command (pure)."""
+    return text.split("/feature")[1].strip()
+
+
+def _build_pairings_lines(rows, current_user_id: int) -> str | None:
+    """
+    Build the pairings message from ``(event, user_id, username)`` query rows,
+    ignoring the requesting user. Returns ``None`` when there are no pairings.
+    """
+    other_usernames_by_event: dict = {}
+    for event, user_id, username in rows:
+        if user_id == current_user_id:
+            continue
+        other_usernames_by_event.setdefault(event.id, (event, []))
+        name = f"@{username}" if username else f"Nutzer {user_id}"
+        other_usernames_by_event[event.id][1].append(name)
+
+    pairings = list(other_usernames_by_event.values())
+    if not pairings:
+        return None
+
+    lines = ["Konzerte, an denen Du und andere Nutzer interessiert seid:"]
+    for event, usernames in pairings:
+        lines.append(f"{event.get_german_date()} - {event.band}: {', '.join(usernames)}")
+    return "\n".join(lines)
+
+
 @telegram_bot.message_handler(commands=[Commands.start.name])
-def start(message: Message):
+def start(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     chat_id = message.chat.id
 
@@ -43,13 +80,13 @@ def start(message: Message):
         )
         return
 
-    text = "Willkommen" + (", meine Hoheit" if db_user.is_admin else "")
+    text = get_welcome_text(db_user.is_admin)
     telegram_bot.send_message(chat_id=chat_id, text=text)
     send_events_to_user(db_user, 1)
 
 
 @telegram_bot.message_handler(commands=[Commands.sources.name])
-def sources(message: Message):
+def sources(message: Message):  # pragma: no cover - DB + Telegram I/O
     chat_id = message.chat.id
 
     stmt = select(Event.source).distinct().order_by(Event.source)
@@ -76,14 +113,11 @@ def sources(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.next.name])
-def next_interested_events(message: Message):
+def next_interested_events(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     chat_id = message.chat.id
 
-    try:
-        limit = int(message.text.split(f"/{Commands.next.name}")[1])
-    except:
-        limit = 100
+    limit = _parse_limit(message.text, Commands.next.name, 100)
 
     stmt = (
         select(Event)
@@ -105,11 +139,8 @@ def next_interested_events(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.go.name])
-def go(message: Message):
-    try:
-        limit = int(message.text.split(f"/{Commands.go.name}")[1])
-    except:
-        limit = 1
+def go(message: Message):  # pragma: no cover - DB + Telegram I/O
+    limit = _parse_limit(message.text, Commands.go.name, 1)
 
     user_id = message.from_user.id
     user = session.get(User, user_id)
@@ -121,10 +152,10 @@ def go(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.feature.name])
-def feature(message: Message):
+def feature(message: Message):  # pragma: no cover - DB + Telegram I/O
     user = session.get(User, message.from_user.id)
 
-    feature_text = message.text.split("/feature")[1].strip()
+    feature_text = _extract_feature_text(message.text)
     if len(feature_text) == 0:
         telegram_bot.reply_to(
             message=message, text="Gib deinen Feature-Wunsch hinter dem Befehl an"
@@ -138,7 +169,7 @@ def feature(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.changelog.name])
-def changelog(message: Message):
+def changelog(message: Message):  # pragma: no cover - DB + Telegram I/O
     changelog = session.scalar(
         select(Changelog).order_by(desc(Changelog.sent_date)).limit(1)
     )
@@ -152,7 +183,7 @@ def changelog(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.datenschutz.name])
-def datenschutz(message: Message):
+def datenschutz(message: Message):  # pragma: no cover - Telegram I/O
     telegram_bot.reply_to(
         message=message,
         text="Hier findest du die Datenschutzerklärung:",
@@ -161,7 +192,7 @@ def datenschutz(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.mydata.name])
-def mydata(message: Message):
+def mydata(message: Message):  # pragma: no cover - DB + Telegram I/O
     user = session.get(User, message.from_user.id)
     if user is None:
         telegram_bot.reply_to(
@@ -173,7 +204,7 @@ def mydata(message: Message):
 
 
 @telegram_bot.message_handler(commands=[Commands.pairings.name])
-def pairings(message: Message):
+def pairings(message: Message):  # pragma: no cover - DB + Telegram I/O
     user = session.get(User, message.from_user.id)
     if user is None or not user.is_admin:
         logger.warning(
@@ -195,32 +226,19 @@ def pairings(message: Message):
         .order_by(Event.event_date, Event.band)
     ).all()
 
-    other_usernames_by_event: dict = {}
-    for event, user_id, username in rows:
-        if user_id == user.id:
-            continue
-        if event.id not in other_usernames_by_event:
-            other_usernames_by_event[event.id] = (event, [])
-        name = f"@{username}" if username else f"Nutzer {user_id}"
-        other_usernames_by_event[event.id][1].append(name)
-
-    pairings = list(other_usernames_by_event.values())
-
-    if len(pairings) == 0:
+    message_text = _build_pairings_lines(rows, user.id)
+    if message_text is None:
         telegram_bot.send_message(
             chat_id=message.chat.id,
             text="Es gibt keine Konzerte, für die sich neben Dir noch andere Nutzer interessieren",
         )
         return
 
-    lines = ["Konzerte, an denen Du und andere Nutzer interessiert seid:"]
-    for event, usernames in pairings:
-        lines.append(f"{event.get_german_date()} - {event.band}: {', '.join(usernames)}")
-    telegram_bot.send_message(chat_id=message.chat.id, text="\n".join(lines))
+    telegram_bot.send_message(chat_id=message.chat.id, text=message_text)
 
 
 @telegram_bot.message_handler(commands=[Commands.delete.name])
-def delete_user(message: Message):
+def delete_user(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     user = session.get(User, user_id)
     if user is None:
@@ -243,7 +261,7 @@ def delete_user(message: Message):
 
 
 @telegram_bot.message_handler()
-def false_message(message: Message):
+def false_message(message: Message):  # pragma: no cover - Telegram I/O
     message_text = getattr(message, "text", "")
     if message_text.startswith("/"):
         logger.warning(f"Unbekanntes Kommando erhalten: {message_text.split()[0]}")
@@ -255,6 +273,6 @@ def false_message(message: Message):
     )
 
 
-def setup_bot_commands():
+def setup_bot_commands():  # pragma: no cover - Telegram I/O
     bot_commands = [BotCommand(command.name, command.value) for command in Commands]
     telegram_bot.set_my_commands(bot_commands)

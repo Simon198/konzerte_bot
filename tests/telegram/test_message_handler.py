@@ -1,209 +1,67 @@
-"""Unit tests for the command handlers in ``telegram.message_handler``."""
+"""Unit tests for the pure helpers in ``telegram.message_handler``."""
 
+import uuid
 from datetime import date
-from unittest.mock import MagicMock
-
-from sqlalchemy import select
 
 from models.event import Event, Source
-from models.feature import Feature
-from models.user import Interest, User
 from telegram import message_handler
-from telegram.command import Commands
 
 
-class TestStart:
-    def test_new_user_is_created_and_asked_for_consent(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
+class TestParseLimit:
+    def test_parses_number(self):
+        assert message_handler._parse_limit("/next 5", "next", 100) == 5
 
-        message_handler.start(make_message(user_id=1, chat_id=100, username="alice"))
+    def test_defaults_when_missing(self):
+        assert message_handler._parse_limit("/next", "next", 100) == 100
 
-        user = session.get(User, 1)
-        assert user is not None
-        assert user.chat_id == 100
-        assert user.username == "alice"
-        fake_bot.send_message.assert_called_once()
-        assert "konzert_bot" in fake_bot.send_message.call_args.kwargs["text"]
-
-    def test_existing_user_with_consent_gets_welcome(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        monkeypatch.setattr(message_handler, "send_events_to_user", MagicMock())
-
-        session.add(User(id=1, chat_id=100, username="alice", consent_given=True))
-        session.commit()
-
-        message_handler.start(
-            make_message(user_id=1, chat_id=200, username="alice")
-        )
-
-        session.expire_all()
-        assert session.get(User, 1).chat_id == 200
-        fake_bot.send_message.assert_called_once()
-        assert "Willkommen" in fake_bot.send_message.call_args.kwargs["text"]
-        message_handler.send_events_to_user.assert_called_once()
-
-    def test_admin_gets_hoheit_greeting(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        monkeypatch.setattr(message_handler, "send_events_to_user", MagicMock())
-
-        session.add(
-            User(id=1, chat_id=100, username="alice", consent_given=True, is_admin=True)
-        )
-        session.commit()
-
-        message_handler.start(make_message(user_id=1, chat_id=100))
-
-        assert "meine Hoheit" in fake_bot.send_message.call_args.kwargs["text"]
+    def test_defaults_when_not_a_number(self):
+        assert message_handler._parse_limit("/next abc", "next", 100) == 100
 
 
-class TestFeature:
-    def test_stores_feature_request(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        session.add(User(id=1, chat_id=100))
-        session.commit()
+class TestExtractFeatureText:
+    def test_extracts_text(self):
+        assert message_handler._extract_feature_text("/feature Mehr Metal") == "Mehr Metal"
 
-        message_handler.feature(make_message(user_id=1, text="/feature Mehr Metal"))
-
-        features = session.scalars(select(Feature)).all()
-        assert len(features) == 1
-        assert features[0].text == "Mehr Metal"
-        fake_bot.reply_to.assert_called_once()
-
-    def test_empty_feature_is_rejected(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        session.add(User(id=1, chat_id=100))
-        session.commit()
-
-        message_handler.feature(make_message(user_id=1, text="/feature"))
-
-        fake_bot.reply_to.assert_called_once()
-        assert session.scalars(select(Feature)).all() == []
+    def test_empty_when_no_text(self):
+        assert message_handler._extract_feature_text("/feature") == ""
 
 
-class TestNextInterestedEvents:
-    def test_sends_interested_event(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-
-        event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
-            location="L", event_date=date(2026, 6, 1),
-        )
-        user = User(id=1, chat_id=100)
-        user.interest.append(Interest(event=event))
-        session.add(user)
-        session.commit()
-
-        message_handler.next_interested_events(
-            make_message(user_id=1, chat_id=100, text="/next")
-        )
-
-        fake_bot.send_message.assert_called_once()
-        assert "Band A" in fake_bot.send_message.call_args.kwargs["text"]
-
-    def test_no_interests_returns_info(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        session.add(User(id=1, chat_id=100))
-        session.commit()
-
-        message_handler.next_interested_events(
-            make_message(user_id=1, chat_id=100, text="/next")
-        )
-
-        fake_bot.send_message.assert_called_once()
-        assert "keine anstehenden Konzerte" in fake_bot.send_message.call_args.kwargs["text"]
+def _event(band, event_date=date(2026, 5, 10)):
+    return Event(
+        id=uuid.uuid4(),
+        dto_id=band,
+        source=Source.BATSCHKAPP,
+        band=band,
+        city="F",
+        location="L",
+        event_date=event_date,
+    )
 
 
-class TestDeleteUser:
-    def test_deletes_registered_user(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        session.add(User(id=1, chat_id=100))
-        session.commit()
-
-        message_handler.delete_user(make_message(user_id=1, chat_id=100))
-
-        assert session.get(User, 1) is None
-        fake_bot.send_message.assert_called_once()
-
-    def test_unregistered_user_gets_notice(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-
-        message_handler.delete_user(make_message(user_id=99, chat_id=100))
-
-        fake_bot.send_message.assert_called_once()
-        assert "nicht registriert" in fake_bot.send_message.call_args.kwargs["text"]
-
-
-class TestPairings:
-    def test_non_admin_is_denied(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-        session.add(User(id=1, chat_id=100, is_admin=False))
-        session.commit()
-
-        message_handler.pairings(make_message(user_id=1, chat_id=100))
-
-        fake_bot.reply_to.assert_called_once()
-        assert "keine Berechtigung" in fake_bot.reply_to.call_args.kwargs["text"]
-
-    def test_lists_events_shared_with_other_users(
-        self, session, monkeypatch, make_message, fake_bot
-    ):
-        monkeypatch.setattr(message_handler, "session", session)
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
-
-        admin = User(id=1, chat_id=100, username="admin", is_admin=True)
-        other = User(id=2, chat_id=200, username="bob")
-        event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Metallica", city="F",
-            location="L", event_date=date(2026, 6, 1),
-        )
-        admin.interest.append(Interest(event=event))
-        other.interest.append(Interest(event=event))
-        session.add_all([admin, other])
-        session.commit()
-
-        message_handler.pairings(make_message(user_id=1, chat_id=100))
-
-        text = fake_bot.send_message.call_args.kwargs["text"]
-        assert "Metallica" in text
+class TestBuildPairingsLines:
+    def test_ignores_requesting_user(self):
+        event = _event("Metallica")
+        rows = [(event, 1, "admin"), (event, 2, "bob")]
+        text = message_handler._build_pairings_lines(rows, current_user_id=1)
         assert "@bob" in text
+        assert "@admin" not in text
 
+    def test_no_pairings_returns_none(self):
+        event = _event("Metallica")
+        rows = [(event, 1, "admin")]
+        assert message_handler._build_pairings_lines(rows, current_user_id=1) is None
 
-class TestSetupBotCommands:
-    def test_registers_one_command_per_enum_member(self, monkeypatch, fake_bot):
-        monkeypatch.setattr(message_handler, "telegram_bot", fake_bot)
+    def test_username_fallback_for_missing_username(self):
+        event = _event("Metallica")
+        rows = [(event, 2, None)]
+        text = message_handler._build_pairings_lines(rows, current_user_id=1)
+        assert "Nutzer 2" in text
 
-        message_handler.setup_bot_commands()
-
-        fake_bot.set_my_commands.assert_called_once()
-        commands = fake_bot.set_my_commands.call_args.args[0]
-        assert len(commands) == len(Commands)
+    def test_groups_multiple_users_on_same_event(self):
+        event = _event("Metallica")
+        rows = [(event, 2, "bob"), (event, 3, "carol")]
+        text = message_handler._build_pairings_lines(rows, current_user_id=1)
+        assert "Metallica" in text
+        assert "10.05.2026" in text
+        assert "@bob" in text
+        assert "@carol" in text

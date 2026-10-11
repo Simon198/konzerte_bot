@@ -1,11 +1,8 @@
-"""Unit tests for the event upsert / change-detection logic in ``load_and_persist``."""
+"""Unit tests for the pure transformation helpers in ``web_scraping.load_and_persist``."""
 
-from datetime import date
-
-from sqlalchemy import func, select
+from datetime import date, time
 
 from models.event import Event, Source
-from models.user import Interest, User
 from web_scraping import load_and_persist
 from web_scraping.dto import EventDTO
 
@@ -38,82 +35,63 @@ def make_event(**overrides) -> Event:
     return Event(**defaults)
 
 
-class TestUpdateEvent:
-    def test_no_changes_returns_same_event(self):
-        event = make_event()
-        assert load_and_persist._update_event(make_dto(), event) is event
-
-    def test_detects_band_change(self):
-        event = make_event()
-        load_and_persist._update_event(make_dto(band="Band B"), event)
-        assert event.band == "Band B"
-
-    def test_detects_date_change(self):
-        event = make_event()
-        load_and_persist._update_event(make_dto(date=date(2026, 6, 1)), event)
-        assert event.event_date == date(2026, 6, 1)
-
-
-class TestInsertEvent:
-    def test_inserts_from_dto(self, session, monkeypatch):
-        monkeypatch.setattr(load_and_persist, "session", session)
-        event = load_and_persist._insert_event(make_dto())
-        session.flush()
-        assert event.id is not None
+class TestEventFromDto:
+    def test_maps_all_fields(self):
+        dto = make_dto(
+            admission=time(17, 30),
+            beginn=time(20, 0),
+            hint="Ausverkauft",
+            subtitle="Sub",
+            status="Status",
+        )
+        event = load_and_persist._event_from_dto(dto)
+        assert event.dto_id == "1"
+        assert event.source == Source.BATSCHKAPP
         assert event.band == "Band A"
         assert event.city == "Frankfurt"
+        assert event.location == "Batschkapp"
+        assert event.event_date == date(2026, 5, 10)
+        assert event.admission == time(17, 30)
+        assert event.beginn == time(20, 0)
+        assert event.hint == "Ausverkauft"
+        assert event.subtitle == "Sub"
+        assert event.status == "Status"
 
 
-class TestInsertOrUpdateEvent:
-    def test_inserts_then_updates_same_row(self, session, monkeypatch):
-        monkeypatch.setattr(load_and_persist, "session", session)
-        first = load_and_persist._insert_or_update_event(make_dto())
-        session.flush()
+class TestDiffEvent:
+    def test_no_changes(self):
+        assert load_and_persist._diff_event(make_dto(), make_event()) == {}
 
-        updated = load_and_persist._insert_or_update_event(make_dto(band="Band B"))
-        session.flush()
+    def test_detects_band_change(self):
+        changes = load_and_persist._diff_event(make_dto(band="Band B"), make_event())
+        assert changes == {"band": ("Band A", "Band B")}
 
-        assert updated is first
-        assert updated.band == "Band B"
-
-        count = session.scalar(
-            select(func.count()).select_from(Event).where(Event.dto_id == "1")
+    def test_detects_date_change(self):
+        changes = load_and_persist._diff_event(
+            make_dto(date=date(2026, 6, 1)), make_event()
         )
-        assert count == 1
+        assert changes == {"event_date": (date(2026, 5, 10), date(2026, 6, 1))}
 
 
-class TestSendMessageToInterestedUsers:
-    def test_sends_changes_to_interested_user(self, monkeypatch):
-        sent = []
-        monkeypatch.setattr(
-            load_and_persist.telegram_bot,
-            "send_message",
-            lambda chat_id, text: sent.append((chat_id, text)),
+class TestFormatChangeTexts:
+    def test_translates_known_fields(self):
+        changes = {
+            "band": ("Band A", "Band B"),
+            "event_date": (date(2026, 5, 10), date(2026, 6, 1)),
+        }
+        assert load_and_persist._format_change_texts(changes) == [
+            "Band: Band A -> Band B",
+            "Datum: 2026-05-10 -> 2026-06-01",
+        ]
+
+    def test_skips_unknown_fields(self):
+        assert load_and_persist._format_change_texts({"not_a_field": ("a", "b")}) == []
+
+
+class TestFormatChangeMessage:
+    def test_builds_summary(self):
+        text = load_and_persist._format_change_message(
+            make_event(), ["Band: Band A -> Band B"]
         )
-        event = make_event()
-        event.interest.append(Interest(user=User(id=1, chat_id=100)))
-
-        load_and_persist._send_message_to_interested_users(
-            event, {"band": ("Band A", "Band B")}
-        )
-
-        assert len(sent) == 1
-        chat_id, text = sent[0]
-        assert chat_id == 100
+        assert "Es gibt folgende Änderungen zu Band A" in text
         assert "Band: Band A -> Band B" in text
-
-    def test_skips_unknown_attributes(self, monkeypatch):
-        sent = []
-        monkeypatch.setattr(
-            load_and_persist.telegram_bot,
-            "send_message",
-            lambda chat_id, text: sent.append((chat_id, text)),
-        )
-        event = make_event()
-        event.interest.append(Interest(user=User(id=1, chat_id=100)))
-
-        load_and_persist._send_message_to_interested_users(
-            event, {"not_a_field": ("a", "b")}
-        )
-
-        assert sent == []

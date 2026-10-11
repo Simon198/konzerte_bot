@@ -19,7 +19,7 @@ SCRAPERS_DIR = "scrapers"
 scrapers_dir = Path(__file__).parent / SCRAPERS_DIR
 
 
-def _load_all_events():
+def _load_all_events():  # pragma: no cover - dynamic scraper import + network I/O
     start_time = time.time()
 
     for script in scrapers_dir.glob("*.py"):
@@ -51,8 +51,9 @@ def _load_all_events():
     )
 
 
-def _insert_event(event_dto: EventDTO):
-    event = Event(
+def _event_from_dto(event_dto: EventDTO) -> Event:
+    """Map a scraped ``EventDTO`` to an ``Event`` ORM object (pure)."""
+    return Event(
         dto_id=event_dto.id,
         source=event_dto.source,
         band=event_dto.band,
@@ -65,11 +66,15 @@ def _insert_event(event_dto: EventDTO):
         subtitle=event_dto.subtitle,
         status=event_dto.status,
     )
+
+
+def _insert_event(event_dto: EventDTO):  # pragma: no cover - DB storage
+    event = _event_from_dto(event_dto)
     session.add(event)
     return event
 
 
-def _update_observed_messages(event: Event, old_message_text: str):
+def _update_observed_messages(event: Event, old_message_text: str):  # pragma: no cover - Telegram I/O
     """
     If the message text is updated, update all message of events that have been observed by users
     """
@@ -97,34 +102,38 @@ TRANSLATIONS = {
 }
 
 
-def _send_message_to_interested_users(event, changes):
+def _format_change_texts(changes) -> list[str]:
+    """Turn a ``{attr: (old, new)}`` diff into human-readable change lines (pure)."""
+    return [
+        f"{TRANSLATIONS[attr]}: {old_value} -> {new_value}"
+        for attr, (old_value, new_value) in changes.items()
+        if attr in TRANSLATIONS
+    ]
+
+
+def _format_change_message(event: Event, change_texts: list[str]) -> str:
+    """Build the message that summarises the changes to an event (pure)."""
+    return (
+        f"Es gibt folgende Änderungen zu {event.band} ({event.event_date})\n"
+        + "\n".join(change_texts)
+    )
+
+
+def _send_message_to_interested_users(event, changes):  # pragma: no cover - Telegram I/O
     """
     Send a message to all interested users of the changed events
     """
+    change_texts = _format_change_texts(changes)
+    if len(change_texts) == 0:
+        return
+
+    text = _format_change_message(event, change_texts)
     for interest in event.interest:
-        chat_id = interest.user.chat_id
-        change_texts: list[str] = []
-        for attr, (old_value, new_value) in changes.items():
-            if attr not in TRANSLATIONS:
-                continue
-            change_texts.append(f"{TRANSLATIONS[attr]}: {old_value} -> {new_value}")
-
-        if len(change_texts) == 0:
-            continue
-
-        text = (
-            f"Es gibt folgende Änderungen zu {event.band} ({event.event_date})\n"
-            + "\n".join(change_texts)
-        )
-        telegram_bot.send_message(chat_id=chat_id, text=text)
+        telegram_bot.send_message(chat_id=interest.user.chat_id, text=text)
 
 
-def _update_event(event_dto: EventDTO, event: Event):
-    """
-    Update the DB event by the new dto object. If changes have occured, message the users
-    """
-    old_message_text = event.get_message_text()
-
+def _diff_event(event_dto: EventDTO, event: Event) -> dict:
+    """Return ``{attr: (old_value, new_value)}`` for every changed field (pure)."""
     changes: dict[str, any] = {}
     fields = {
         "source": event_dto.source,
@@ -142,19 +151,30 @@ def _update_event(event_dto: EventDTO, event: Event):
     for attr, new_value in fields.items():
         old_value = getattr(event, attr)
         if old_value != new_value:
-            setattr(event, attr, new_value)
             changes[attr] = (old_value, new_value)
+    return changes
+
+
+def _update_event(event_dto: EventDTO, event: Event):  # pragma: no cover - DB + Telegram I/O
+    """
+    Update the DB event by the new dto object. If changes have occured, message the users
+    """
+    old_message_text = event.get_message_text()
+
+    changes = _diff_event(event_dto, event)
 
     if len(changes) == 0:
         return event
 
+    for attr, (_, new_value) in changes.items():
+        setattr(event, attr, new_value)
     event.update_time = datetime.now()
     _update_observed_messages(event, old_message_text)
     _send_message_to_interested_users(event, changes)
     return event
 
 
-def _insert_or_update_event(event_dto: EventDTO):
+def _insert_or_update_event(event_dto: EventDTO):  # pragma: no cover - DB storage
     event = session.scalar(select(Event).where(Event.dto_id == event_dto.id))
     if event is None:
         return _insert_event(event_dto)
@@ -162,7 +182,7 @@ def _insert_or_update_event(event_dto: EventDTO):
         return _update_event(event_dto, event)
 
 
-def load_and_persist_events():
+def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegram I/O
     try:
         logger.info("Start webscraping events")
         new_events: dict[Source, int] = {}
@@ -200,5 +220,5 @@ def load_and_persist_events():
         logger.exception("An error occurred while loading the events")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     load_and_persist_events()

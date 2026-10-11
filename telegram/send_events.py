@@ -12,7 +12,17 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-def send_events_to_user(user: User, limit: int = 1):
+def _event_markup(event: Event) -> InlineKeyboardMarkup:
+    """Build the interested / not-interested reply keyboard for an event (pure)."""
+    markup = InlineKeyboardMarkup()
+    markup.add(
+        InlineKeyboardButton("✅ Interesse", callback_data=f"interested;{event.id}"),
+        InlineKeyboardButton("❌ Kein Interesse", callback_data=f"not_interested;{event.id}"),
+    )
+    return markup
+
+
+def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + Telegram I/O
     stmt = (
         select(Event)
         .where(
@@ -39,14 +49,7 @@ def send_events_to_user(user: User, limit: int = 1):
     events = session.scalars(stmt).all()
     logger.info(f"Sending {len(events)} events to user {user.id}")
     for event in events:
-        markup = InlineKeyboardMarkup()
-        btn_yes = InlineKeyboardButton(
-            "✅ Interesse", callback_data=f"interested;{event.id}"
-        )
-        btn_no = InlineKeyboardButton(
-            "❌ Kein Interesse", callback_data=f"not_interested;{event.id}"
-        )
-        markup.add(btn_yes, btn_no)
+        markup = _event_markup(event)
 
         message = telegram_bot.send_message(
             chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
