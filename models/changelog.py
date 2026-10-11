@@ -10,7 +10,7 @@ class Changelog(Base):
     __tablename__ = "changelogs"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(), primary_key=True, default=uuid.uuid4()
+        UUID(), primary_key=True, default=uuid.uuid4
     )
     file_name: Mapped[str] = mapped_column(String(), nullable=False)
     sent_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

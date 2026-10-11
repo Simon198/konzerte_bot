@@ -11,7 +11,7 @@ class Feature(Base):
     __tablename__ = "features"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(), primary_key=True, default=uuid.uuid4()
+        UUID(), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     user: Mapped["User"] = relationship(back_populates="features")
