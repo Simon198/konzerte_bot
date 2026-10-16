@@ -113,8 +113,13 @@ done
 [[ -f "$APP_DIR/requirements.txt" ]] || die "requirements.txt not found in $APP_DIR."
 
 say "Initializing git submodules"
+# The checkout may be owned by a different user (e.g. root when cloned via
+# `sudo git clone`), which trips git's "dubious ownership" check when the
+# submodule update runs as $GIT_USER. Mark the repository safe for that user.
+run_as "$GIT_USER" git config --global --add safe.directory "$APP_DIR"
 if ! run_as "$GIT_USER" git -C "$APP_DIR" submodule update --init --recursive; then
-    warn "Could not initialize submodules. Run this manually as your user with your SSH agent:\n  cd $APP_DIR && git submodule update --init --recursive"
+    warn "Could not initialize submodules. Run this manually as your user with your SSH agent:
+  cd $APP_DIR && git submodule update --init --recursive"
 fi
 
 # ── System user ───────────────────────────────────────────────────────────
@@ -133,9 +138,15 @@ install -d -m 0755 "$CONFIG_DIR"
 
 # ── Virtualenv + dependencies ─────────────────────────────────────────────
 say "Creating virtual environment"
-if [[ ! -x "$VENV_DIR/bin/python" ]]; then
+# Re-create the venv if it is missing or incomplete. A venv created without
+# ensurepip (python3-venv not installed) can contain `python` but no `pip`.
+if [[ ! -x "$VENV_DIR/bin/python" || ! -x "$VENV_DIR/bin/pip" ]]; then
+    rm -rf "$VENV_DIR"
     python3 -m venv "$VENV_DIR" \
         || die "Failed to create the virtualenv. Install python3-venv (e.g. 'apt install python3-venv')."
+fi
+if [[ ! -x "$VENV_DIR/bin/pip" ]]; then
+    die "pip is missing from $VENV_DIR. Install python3-venv (ensurepip) and re-run."
 fi
 "$VENV_DIR/bin/pip" install --upgrade pip setuptools wheel
 "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
