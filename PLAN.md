@@ -35,7 +35,8 @@
 - [x] write systemctl service
 - [x] deploy bot
 - [x] Make repository public
-- [ ] add youtube link to song to the band
-- [ ] add LLM to add genre of music
-- [ ] add images of bands in the events
-- [ ] Add "select genre" command
+- [ ] Create band model containing information
+    - [ ] Add youtube link to a song of the band in the message
+    - [ ] Add LLM to add genre of music
+    - [ ] Add images of bands in the events
+- [ ] Add "select genre" command to only send events to the user with the given genre
