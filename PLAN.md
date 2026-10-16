@@ -32,7 +32,7 @@
 - [x] check legal/license
 - [x] update start message
 - [x] update commands in the bot father on start up
-- [ ] write systemctl service
+- [x] write systemctl service
 - [ ] deploy bot
 - [ ] add LLM to add genre of music
 - [ ] add images of bands in the events

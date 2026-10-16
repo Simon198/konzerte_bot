@@ -49,7 +49,7 @@ root_logger.addHandler(console_handler)
 
 cfg = configparser.ConfigParser()
 cfg.read("/etc/konzerte_bot/config.ini")
-log_folder = cfg.get("logging", "log_file", fallback="./logs")
+log_folder = cfg.get("logging", "log_folder", fallback="./logs")
 try:
     os.makedirs(log_folder, exist_ok=True)
 except PermissionError:

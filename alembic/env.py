@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -9,6 +10,14 @@ from models import Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Mirror repository.py: allow the database URL to be overridden via the
+# environment so migrations target the same database the application uses
+# (e.g. KONZERTE_BOT_DATABASE_URL=sqlite:////var/lib/konzerte_bot/concerts.db).
+config.set_main_option(
+    "sqlalchemy.url",
+    os.getenv("KONZERTE_BOT_DATABASE_URL", "sqlite:///concerts.db"),
+)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
