@@ -37,6 +37,7 @@
 - [x] Make repository public
 - [ ] Create band model containing information
     - [ ] Add youtube link to a song of the band in the message
-    - [ ] Add LLM to add genre of music
+    - [ ] Add classifier to add genre of music
+    - [ ] Add classifier to ask category, e.g. Band, Cover-Band, Festival, sonstiges
     - [ ] Add images of bands in the events
 - [ ] Add "select genre" command to only send events to the user with the given genre
