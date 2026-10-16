@@ -1,6 +1,6 @@
 # Datenschutzerklärung
 
-**Stand:** 10. Oktober 2026
+**Stand:** 16. Oktober 2026
 
 Diese Datenschutzerklärung informiert dich gemäß Art. 12 ff. DSGVO darüber, welche
 personenbezogenen Daten der Telegram-Bot **„konzert_bot“** (nachfolgend „der Bot“)
@@ -31,6 +31,7 @@ die du jederzeit widerrufen kannst.
 | Telegram-Nutzer-ID | eindeutige numerische ID | Identifikation und Zuordnung deiner Einstellungen |
 | Telegram-Chat-ID | Chat-ID | Zusenden von Nachrichten |
 | Telegram-Benutzername | `@name` (sofern gesetzt) | Anzeige und Benachrichtigung des Administrators |
+| Telegram-Vor- und Nachname | `Vorname Nachname` (nur falls kein Benutzername gesetzt) | Benachrichtigung des Administrators; wird nicht dauerhaft gespeichert |
 | Interessen | Konzerte, für die du „Interesse“ markiert hast | Empfehlungen und Erinnerungen |
 | Bereits angezeigte Konzerte | Event-ID + Message-ID | Vermeidung doppelter Empfehlungen, Aktualisierung von Nachrichten |
 | Abbestellte Quellen | Veranstaltungsorte | Anpassung deiner Empfehlungen |
@@ -70,8 +71,9 @@ Eine darüber hinausgehende Verwendung findet nicht statt.
 
 - **Telegram Messenger Inc. / Meta:** Der Bot läuft über die Telegram-Plattform. Nachrichten,
   IDs und Benutzernamen werden technisch bedingt über die Server von Telegram verarbeitet.
-- **Administrator(en) des Bots:** Erhalten Benachrichtigungen über neue Nutzer, Interessen,
-  Feature-Wünsche sowie technische Log- und Fehlermeldungen.
+- **Administrator(en) des Bots:** Erhalten Benachrichtigungen über neue Nutzer
+  (ggf. mit Benutzername bzw. Vor- und Nachname), Interessen, Feature-Wünsche sowie
+  technische Log- und Fehlermeldungen.
 
 Eine Weitergabe an weitere Dritte erfolgt nicht.
 
@@ -87,6 +89,8 @@ beim ersten Start über die Schaltfläche „Ich stimme zu“ erteilst.
 - **Nutzerdaten** (ID, Chat-ID, Benutzername, Interessen, angezeigte Konzerte,
   Abbestellungen): bis du den Dienst nicht mehr nutzt bzw. bis du `/delete` ausführst.
 - **Feature-Wünsche:** bis zur Bearbeitung bzw. manuellen Löschung durch den Administrator.
+- **Vor- und Nachname:** wird nicht dauerhaft gespeichert, sondern nur zur einmaligen
+  Benachrichtigung des Administrators verwendet.
 - **Log-Dateien:** automatische Löschung nach **30 Tagen**.
 - Vergangene Konzerte und damit verknüpfte Interessen-/Anzeige-Daten werden laufend
   automatisch entfernt.

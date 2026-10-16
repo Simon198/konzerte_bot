@@ -4,6 +4,7 @@ from io import BytesIO
 from telebot.types import InputFile
 
 from models.user import User
+from utils import format_user_name
 
 from . import telegram_bot
 
@@ -61,7 +62,7 @@ def build_user_data(user: User) -> dict:
 
 
 def _build_summary(user: User) -> str:
-    username = f"@{user.username}" if user.username else "(keiner)"
+    username = format_user_name(username=user.username)
     if user.consent_given and user.consent_date:
         consent = f"erteilt (am {user.consent_date.strftime('%d.%m.%Y %H:%M')})"
     else:

@@ -76,3 +76,29 @@ class TestConsent:
         )
 
         assert callback_query_handler.session.get(User, 1).consent_given is False
+
+    def test_accept_without_username_uses_first_name(
+        self, wire, make_callback_query, fake_bot
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        callback_query_handler.session.add_all([
+            User(id=1, chat_id=100, username=None),
+            User(id=99, chat_id=999, is_admin=True),
+        ])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(
+                f"{CallbackData.CONSENT.value};accept",
+                user_id=1,
+                username=None,
+                first_name="Alice",
+                last_name="Schmidt",
+            )
+        )
+
+        texts = [
+            call.kwargs.get("text", "") for call in fake_bot.send_message.call_args_list
+        ]
+        assert "Alice Schmidt tritt der Gang bei" in texts
+        assert not any("@None" in text for text in texts)

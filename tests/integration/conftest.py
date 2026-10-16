@@ -61,10 +61,23 @@ def make_message():
 def make_callback_query():
     """Factory returning a lightweight stand-in for ``telebot.types.CallbackQuery``."""
 
-    def _make(data, user_id=1, chat_id=100, message_id=555, username="alice"):
+    def _make(
+        data,
+        user_id=1,
+        chat_id=100,
+        message_id=555,
+        username="alice",
+        first_name=None,
+        last_name=None,
+    ):
         return types.SimpleNamespace(
             data=data,
-            from_user=types.SimpleNamespace(id=user_id, username=username),
+            from_user=types.SimpleNamespace(
+                id=user_id,
+                username=username,
+                first_name=first_name,
+                last_name=last_name,
+            ),
             message=types.SimpleNamespace(id=message_id, chat=types.SimpleNamespace(id=chat_id)),
         )
 

@@ -1,7 +1,7 @@
 # Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO)
 
 **Verantwortlicher:** Simon Heinrich · Telegram **@unst0ppabel**
-**Stand:** 10. Oktober 2026
+**Stand:** 16. Oktober 2026
 
 ## Verarbeitungstätigkeit: Betrieb des Telegram-Bots „konzert_bot“
 
@@ -9,7 +9,7 @@
 |---|---|
 | **Zwecke** | Betrieb des Bots, Versand von Konzertempfehlungen und Erinnerungen, Speicherung und Berücksichtigung von Einstellungen, Entgegennahme von Feature-Wünschen, technische Absicherung und Fehlerbehebung (Logging) |
 | **Betroffene Personen** | Nutzer des Bots |
-| **Datenkategorien** | Telegram-Nutzer-ID, Telegram-Chat-ID, Telegram-Benutzername, Interessen (markierte Konzerte), bereits angezeigte Konzerte (Event-ID + Message-ID), abbestellte Quellen, Feature-Wünsche, Admin-Status, Einwilligungsdaten (Ja/Nein, Zeitpunkt, Version), Log-Daten (Nutzer-ID, Zeitstempel, Fehlermeldungen) |
+| **Datenkategorien** | Telegram-Nutzer-ID, Telegram-Chat-ID, Telegram-Benutzername, Telegram-Vor- und Nachname (nur zur Admin-Benachrichtigung, nicht gespeichert), Interessen (markierte Konzerte), bereits angezeigte Konzerte (Event-ID + Message-ID), abbestellte Quellen, Feature-Wünsche, Admin-Status, Einwilligungsdaten (Ja/Nein, Zeitpunkt, Version), Log-Daten (Nutzer-ID, Zeitstempel, Fehlermeldungen) |
 | **Rechtsgrundlagen** | Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung, Kerndienst) · Art. 6 Abs. 1 lit. a DSGVO (Einwilligung: Drittlandübermittlung, Admin-Benachrichtigung, freiwillige Angaben) · Art. 6 Abs. 1 lit. f DSGVO (Logging, Fehlerbehandlung) |
 | **Empfänger** | Telegram Messenger Inc. / Meta (Plattform), Administrator(en) des Bots |
 | **Drittlandübermittlung** | Telegram verarbeitet Daten auch in den USA; Grundlage: Einwilligung (Art. 49 Abs. 1 lit. a DSGVO) |

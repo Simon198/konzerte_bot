@@ -8,7 +8,7 @@ from telebot.types import CallbackQuery
 from models.event import Event
 from models.user import Interest, User
 from repository import session
-from utils import TIMEZONE
+from utils import TIMEZONE, format_user_name
 
 from . import telegram_bot
 from .callback_data import CallbackData
@@ -32,7 +32,14 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
     message = callback_query.message
     message_id = message.id
     chat_id = message.chat.id
-    user_id = callback_query.from_user.id
+    from_user = callback_query.from_user
+    user_id = from_user.id
+    display_name = format_user_name(
+        username=from_user.username,
+        first_name=from_user.first_name,
+        last_name=from_user.last_name,
+        user_id=from_user.id,
+    )
 
     user = session.get(User, user_id)
 
@@ -48,7 +55,7 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
             user.interest.append(Interest(event=event))
 
             prodcast_message_to_admins(
-                f"Nutzer @{callback_query.from_user.username} ist interessiert an:\n{event.get_short_message_text()}",
+                f"{display_name} ist interessiert an:\n{event.get_short_message_text()}",
                 user_id,
             )
             send_events_to_user(user, limit=1)
@@ -73,7 +80,7 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
                     user.consent_date = datetime.now(tz=ZoneInfo(TIMEZONE))
                     user.consent_version = DATENSCHUTZ_VERSION
                     prodcast_message_to_admins(
-                        f"@{callback_query.from_user.username} tritt der Gang bei",
+                        f"{display_name} tritt der Gang bei",
                         user_id,
                     )
                     text = get_welcome_text(user.is_admin)

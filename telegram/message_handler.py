@@ -11,6 +11,7 @@ from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
 from send_changelog import read_changelog
+from utils import format_user_name
 
 from . import telegram_bot
 from .command import Commands
@@ -45,7 +46,7 @@ def _build_pairings_lines(rows, current_user_id: int) -> str | None:
         if user_id == current_user_id:
             continue
         other_usernames_by_event.setdefault(event.id, (event, []))
-        name = f"@{username}" if username else f"Nutzer {user_id}"
+        name = format_user_name(username=username, user_id=user_id)
         other_usernames_by_event[event.id][1].append(name)
 
     pairings = list(other_usernames_by_event.values())
