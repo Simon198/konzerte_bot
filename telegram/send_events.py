@@ -47,7 +47,6 @@ def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + 
     )
 
     events = session.scalars(stmt).all()
-    logger.info(f"Sending {len(events)} events to user {user.id}")
     for event in events:
         markup = _event_markup(event)
 
