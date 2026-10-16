@@ -33,8 +33,9 @@
 - [x] update start message
 - [x] update commands in the bot father on start up
 - [x] write systemctl service
-- [ ] deploy bot
+- [x] deploy bot
+- [x] Make repository public
+- [ ] add youtube link to song to the band
 - [ ] add LLM to add genre of music
 - [ ] add images of bands in the events
 - [ ] Add "select genre" command
-- [x] Make repository public

@@ -190,6 +190,9 @@ def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegr
         new_events: dict[Source, int] = {}
         for event_dtos in _load_all_events():
             for event_dto in event_dtos:
+                if event_dto.date is None:
+                    continue
+
                 event = _insert_or_update_event(event_dto)
                 if event.id is None:
                     if event.source not in new_events:
