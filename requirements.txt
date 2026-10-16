@@ -3,6 +3,7 @@
 python-dotenv>=1.0.0
 pyTelegramBotAPI>=4.14.0
 schedule>=1.2.0
+pytz>=2024.1  # schedule needs this for timezone-aware .at() scheduling (its "timezone" extra)
 SQLAlchemy>=2.0.0
 alembic>=1.13.0
 tqdm>=4.66.0
