@@ -16,6 +16,10 @@ def run_scheduler():
     schedule.every().day.at("17:00", TIMEZONE).do(web_scraping.load_and_persist_events)
     logger.info("Scheduler started successfully")
 
+    # Immediately begin scraping events in the background so the bot stays
+    # reachable and events are available right after startup.
+    web_scraping.load_and_persist_events_async()
+
     while True:
         schedule.run_pending()
         time.sleep(1)

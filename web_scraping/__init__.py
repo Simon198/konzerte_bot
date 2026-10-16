@@ -1,1 +1,1 @@
-from .load_and_persist import load_and_persist_events
+from .load_and_persist import load_and_persist_events, load_and_persist_events_async

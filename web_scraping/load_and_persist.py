@@ -1,5 +1,6 @@
 import importlib
 import logging
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -30,6 +31,7 @@ def _load_all_events():  # pragma: no cover - dynamic scraper import + network I
                     package=f"{__package__}.{SCRAPERS_DIR}", name=f".{module_name}"
                 )
                 if hasattr(module, "load_events"):
+                    logger.info(f"Scraper {module_name} begins")
                     try:
                         yield module.load_events()
                     except:
@@ -218,6 +220,18 @@ def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegr
             )
     except:
         logger.exception("An error occurred while loading the events")
+
+
+def load_and_persist_events_async():  # pragma: no cover - threading
+    """Start ``load_and_persist_events`` in a background daemon thread.
+
+    Returns the thread so callers can join it if needed. Running the scraper
+    off the main polling thread keeps the bot reachable while events are
+    being loaded.
+    """
+    thread = threading.Thread(target=load_and_persist_events, daemon=True)
+    thread.start()
+    return thread
 
 
 if __name__ == "__main__":  # pragma: no cover
