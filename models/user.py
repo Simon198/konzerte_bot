@@ -35,10 +35,6 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    features: Mapped[list["Feature"]] = relationship(
-        back_populates="user",
-        cascade="all, delete-orphan",
-    )
 
 
 class Observed(Base):

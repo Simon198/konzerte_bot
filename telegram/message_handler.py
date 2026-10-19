@@ -7,7 +7,6 @@ from telebot.types import BotCommand, Message
 from models.changelog import Changelog
 from models.band import Band
 from models.event import Event, Source
-from models.feature import Feature
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
@@ -30,11 +29,6 @@ def _parse_limit(text: str, command_name: str, default: int) -> int:
         return int(text.split(f"/{command_name}")[1])
     except (ValueError, IndexError):
         return default
-
-
-def _extract_feature_text(text: str) -> str:
-    """Extract the feature-request text behind the ``/feature`` command (pure)."""
-    return text.split("/feature")[1].strip()
 
 
 def _build_pairings_lines(rows, current_user_id: int) -> str | None:
@@ -153,23 +147,6 @@ def go(message: Message):  # pragma: no cover - DB + Telegram I/O
     send_events_to_user(user, limit)
 
 
-@telegram_bot.message_handler(commands=[Commands.feature.name])
-def feature(message: Message):  # pragma: no cover - DB + Telegram I/O
-    user = session.get(User, message.from_user.id)
-
-    feature_text = _extract_feature_text(message.text)
-    if len(feature_text) == 0:
-        telegram_bot.reply_to(
-            message=message, text="Gib deinen Feature-Wunsch hinter dem Befehl an"
-        )
-        return
-
-    feature = Feature(user=user, text=feature_text)
-    session.add(feature)
-    session.commit()
-    telegram_bot.reply_to(message=message, text="Dein Feature-Wunsch wurde aufgenommen")
-
-
 @telegram_bot.message_handler(commands=[Commands.changelog.name])
 def changelog(message: Message):  # pragma: no cover - DB + Telegram I/O
     changelog = session.scalar(
@@ -252,7 +229,7 @@ def delete_user(message: Message):  # pragma: no cover - DB + Telegram I/O
         return
 
     # Deleting the user cascades to all related records (Interest, Observed,
-    # SourceUnsubscription, Feature) via the relationships configured on User.
+    # SourceUnsubscription) via the relationships configured on User.
     session.delete(user)
     session.commit()
     logger.info(f"User {user_id} hat seine Daten gelöscht")

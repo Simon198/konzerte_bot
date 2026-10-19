@@ -19,14 +19,6 @@ class TestParseLimit:
         assert message_handler._parse_limit("/next abc", "next", 100) == 100
 
 
-class TestExtractFeatureText:
-    def test_extracts_text(self):
-        assert message_handler._extract_feature_text("/feature Mehr Metal") == "Mehr Metal"
-
-    def test_empty_when_no_text(self):
-        assert message_handler._extract_feature_text("/feature") == ""
-
-
 def _event(band, event_date=date(2026, 5, 10)):
     return Event(
         id=uuid.uuid4(),

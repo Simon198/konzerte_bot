@@ -5,7 +5,6 @@ from datetime import date, datetime, timezone
 
 from models.band import Band
 from models.event import Event, Source
-from models.feature import Feature
 from models.user import Interest, Observed, SourceUnsubscription, User
 from telegram.mydata import (
     _build_json_bytes,
@@ -37,7 +36,6 @@ def _build_user():
     user.interest.append(Interest(event=event))
     user.observed.append(Observed(event=event, message_id=555))
     user.source_unsubscriptions.append(SourceUnsubscription(source=Source.FESTHALLE))
-    user.features.append(Feature(id=uuid.uuid4(), text="Mehr Metal"))
     return user, event
 
 
@@ -92,13 +90,6 @@ class TestBuildUserData:
     def test_source_unsubscriptions(self):
         user, _ = _build_user()
         assert build_user_data(user)["source_unsubscriptions"] == ["Festhalle"]
-
-    def test_features(self):
-        user, _ = _build_user()
-        features = build_user_data(user)["features"]
-        assert len(features) == 1
-        assert features[0]["text"] == "Mehr Metal"
-        assert features[0]["id"] == str(user.features[0].id)
 
 
 class TestBuildSummary:

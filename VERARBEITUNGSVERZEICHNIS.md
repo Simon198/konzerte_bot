@@ -7,13 +7,13 @@
 
 | Punkt | Angabe |
 |---|---|
-| **Zwecke** | Betrieb des Bots, Versand von Konzertempfehlungen und Erinnerungen, Speicherung und Berücksichtigung von Einstellungen, Entgegennahme von Feature-Wünschen, technische Absicherung und Fehlerbehebung (Logging) |
+| **Zwecke** | Betrieb des Bots, Versand von Konzertempfehlungen und Erinnerungen, Speicherung und Berücksichtigung von Einstellungen, technische Absicherung und Fehlerbehebung (Logging) |
 | **Betroffene Personen** | Nutzer des Bots |
-| **Datenkategorien** | Telegram-Nutzer-ID, Telegram-Chat-ID, Telegram-Benutzername, Telegram-Vor- und Nachname (nur zur Admin-Benachrichtigung, nicht gespeichert), Interessen (markierte Konzerte), bereits angezeigte Konzerte (Event-ID + Message-ID), abbestellte Quellen, Feature-Wünsche, Admin-Status, Einwilligungsdaten (Ja/Nein, Zeitpunkt, Version), Log-Daten (Nutzer-ID, Zeitstempel, Fehlermeldungen) |
-| **Rechtsgrundlagen** | Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung, Kerndienst) · Art. 6 Abs. 1 lit. a DSGVO (Einwilligung: Drittlandübermittlung, Admin-Benachrichtigung, freiwillige Angaben) · Art. 6 Abs. 1 lit. f DSGVO (Logging, Fehlerbehandlung) |
+| **Datenkategorien** | Telegram-Nutzer-ID, Telegram-Chat-ID, Telegram-Benutzername, Telegram-Vor- und Nachname (nur zur Admin-Benachrichtigung, nicht gespeichert), Interessen (markierte Konzerte), bereits angezeigte Konzerte (Event-ID + Message-ID), abbestellte Quellen, Admin-Status, Einwilligungsdaten (Ja/Nein, Zeitpunkt, Version), Log-Daten (Nutzer-ID, Zeitstempel, Fehlermeldungen) |
+| **Rechtsgrundlagen** | Art. 6 Abs. 1 lit. b DSGVO (Vertragserfüllung, Kerndienst) · Art. 6 Abs. 1 lit. a DSGVO (Einwilligung: Drittlandübermittlung, Admin-Benachrichtigung) · Art. 6 Abs. 1 lit. f DSGVO (Logging, Fehlerbehandlung) |
 | **Empfänger** | Telegram Messenger Inc. / Meta (Plattform), Administrator(en) des Bots |
 | **Drittlandübermittlung** | Telegram verarbeitet Daten auch in den USA; Grundlage: Einwilligung (Art. 49 Abs. 1 lit. a DSGVO) |
-| **Speicherdauer** | Nutzerdaten bis `/delete` bzw. Nichtnutzung · Feature-Wünsche bis Bearbeitung · Log-Dateien 30 Tage (automatische Rotation) · vergangene Konzerte werden laufend entfernt |
+| **Speicherdauer** | Nutzerdaten bis `/delete` bzw. Nichtnutzung · Log-Dateien 30 Tage (automatische Rotation) · vergangene Konzerte werden laufend entfernt |
 | **Technische & organisatorische Maßnahmen** | Lokale Datenbank (nicht öffentlich zugänglich), Zugriff nur durch den Administrator, keine automatisierte Entscheidungsfindung/Profiling (Art. 22 DSGVO) |
 
 ## Betroffenenrechte – Umsetzung

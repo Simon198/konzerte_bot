@@ -5,4 +5,4 @@ class Base(DeclarativeBase):
     pass
 
 
-from . import band, event, feature, poll, user, changelog
+from . import band, event, poll, user, changelog

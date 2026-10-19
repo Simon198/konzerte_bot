@@ -4,12 +4,10 @@ import types
 from datetime import date, datetime
 
 import pytest
-from sqlalchemy import select
 
 from models.changelog import Changelog
 from models.band import Band
 from models.event import Event, Source
-from models.feature import Feature
 from models.poll import Poll
 from models.user import Interest, User
 from telegram import message_handler, mydata, send_events
@@ -51,20 +49,6 @@ class TestStart:
         message_handler.start(make_message(user_id=1, chat_id=100))
 
         assert "meine Hoheit" in fake_bot.send_message.call_args.kwargs["text"]
-
-
-class TestFeature:
-    def test_stores_feature_request(self, wire, make_message, fake_bot):
-        wire(message_handler)
-        message_handler.session.add(User(id=1, chat_id=100))
-        message_handler.session.commit()
-
-        message_handler.feature(make_message(user_id=1, text="/feature Mehr Metal"))
-
-        features = message_handler.session.scalars(select(Feature)).all()
-        assert len(features) == 1
-        assert features[0].text == "Mehr Metal"
-        fake_bot.reply_to.assert_called_once()
 
 
 class TestDeleteUser:

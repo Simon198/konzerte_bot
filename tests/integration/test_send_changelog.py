@@ -33,6 +33,9 @@ class TestProdcastNewestChangelog:
     def test_no_new_changelog_sends_nothing(self, wire, fake_bot, tmp_path, monkeypatch):
         wire(send_changelog, prodcast_message)
 
+        monkeypatch.setattr(send_changelog, "CHANGELOG_FOLDER", str(tmp_path))
+        (tmp_path / "CHANGELOG_0.1.md").write_text("# Version 0.1\n", encoding="utf-8")
+
         # Already tracked in the DB -> nothing new to broadcast.
         send_changelog.session.add(
             Changelog(file_name="CHANGELOG_0.1.md", sent_date=datetime.now())

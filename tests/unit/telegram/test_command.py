@@ -9,7 +9,6 @@ def test_commands_have_expected_members():
         "sources",
         "go",
         "next",
-        "feature",
         "changelog",
         "datenschutz",
         "mydata",

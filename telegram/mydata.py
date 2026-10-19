@@ -55,9 +55,6 @@ def build_user_data(user: User) -> dict:
         "source_unsubscriptions": [
             unsubscription.source.value for unsubscription in user.source_unsubscriptions
         ],
-        "features": [
-            {"id": str(feature.id), "text": feature.text} for feature in user.features
-        ],
     }
 
 
@@ -92,12 +89,6 @@ def _build_summary(user: User) -> str:
         lines.append("Abbestellte Quellen:")
         for unsubscription in user.source_unsubscriptions:
             lines.append(f"  • {unsubscription.source.value}")
-        lines.append("")
-
-    if user.features:
-        lines.append("Feature-Wünsche:")
-        for feature in user.features:
-            lines.append(f"  • {feature.text}")
         lines.append("")
 
     lines.append(f"Bereits angezeigte Konzerte: {len(user.observed)}")
