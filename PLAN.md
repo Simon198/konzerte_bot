@@ -35,6 +35,7 @@
 - [x] write systemctl service
 - [x] deploy bot
 - [x] Make repository public
+- [x] Add zoom scraper
 - [ ] Create band model containing information
     - [ ] Add youtube link to a song of the band in the message
     - [ ] Add classifier to add genre of music

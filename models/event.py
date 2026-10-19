@@ -13,6 +13,7 @@ class Source(enum.Enum):
     FESTHALLE = "Festhalle"
     JAHRHUNDERTHALLE = "Jahrhunderthalle"
     SCHLACHTHOF = "Schlachthof"
+    ZOOM = "Zoom"
 
 
 source_enum = Enum(Source, name="source_enum")

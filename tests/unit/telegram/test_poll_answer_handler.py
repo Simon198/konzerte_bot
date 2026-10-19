@@ -13,11 +13,11 @@ class TestSourcesToUnsubscribe:
     def test_returns_unselected_sources(self):
         assert poll_answer_handler._sources_to_unsubscribe(
             _poll_options(), [0, 1]
-        ) == {Source.JAHRHUNDERTHALLE, Source.SCHLACHTHOF}
+        ) == {Source.JAHRHUNDERTHALLE, Source.SCHLACHTHOF, Source.ZOOM}
 
     def test_all_selected_returns_empty(self):
         assert poll_answer_handler._sources_to_unsubscribe(
-            _poll_options(), [0, 1, 2, 3]
+            _poll_options(), list(range(len(list(Source))))
         ) == set()
 
     def test_none_selected_returns_all(self):

@@ -3,7 +3,7 @@ source = .
 omit =
     tests/*
     alembic/*
-    web_scraping/scrapers/*
+    web_scraping/scrapers/tests/*
     .venv/*
     conftest.py
     main.py
@@ -11,3 +11,6 @@ omit =
     scheduler.py
     turn_admin.py
     progressbar.py
+
+[report]
+fail_under = 100

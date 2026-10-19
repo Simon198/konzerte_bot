@@ -32,4 +32,8 @@ class TestHandleSourcePollAnswer:
         subs = poll_answer_handler.session.scalars(
             select(SourceUnsubscription).where(SourceUnsubscription.user_id == 1)
         ).all()
-        assert {s.source for s in subs} == {Source.JAHRHUNDERTHALLE, Source.SCHLACHTHOF}
+        assert {s.source for s in subs} == {
+            Source.JAHRHUNDERTHALLE,
+            Source.SCHLACHTHOF,
+            Source.ZOOM,
+        }
