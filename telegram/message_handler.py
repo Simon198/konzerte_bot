@@ -5,6 +5,7 @@ from sqlalchemy import desc, select
 from telebot.types import BotCommand, Message
 
 from models.changelog import Changelog
+from models.band import Band
 from models.event import Event, Source
 from models.feature import Feature
 from models.poll import Poll, PollOption
@@ -55,7 +56,7 @@ def _build_pairings_lines(rows, current_user_id: int) -> str | None:
 
     lines = ["Konzerte, an denen Du und andere Nutzer interessiert seid:"]
     for event, usernames in pairings:
-        lines.append(f"{event.get_german_date()} - {event.band}: {', '.join(usernames)}")
+        lines.append(f"{event.get_german_date()} - {event.band_name}: {', '.join(usernames)}")
     return "\n".join(lines)
 
 
@@ -223,8 +224,9 @@ def pairings(message: Message):  # pragma: no cover - DB + Telegram I/O
         select(Event, User.id, User.username)
         .join(Interest, Interest.event_id == Event.id)
         .join(User, User.id == Interest.user_id)
+        .join(Band, Band.id == Event.band_id)
         .where(Event.id.in_(admin_interested_event_ids))
-        .order_by(Event.event_date, Event.band)
+        .order_by(Event.event_date, Band.name)
     ).all()
 
     message_text = _build_pairings_lines(rows, user.id)

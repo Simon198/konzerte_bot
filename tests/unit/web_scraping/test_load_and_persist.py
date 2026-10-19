@@ -2,6 +2,7 @@
 
 from datetime import date, time
 
+from models.band import Band
 from models.event import Event, Source
 from web_scraping import load_and_persist
 from web_scraping.dto import EventDTO
@@ -26,7 +27,7 @@ def make_event(**overrides) -> Event:
     defaults = dict(
         dto_id="1",
         source=Source.BATSCHKAPP,
-        band="Band A",
+        band=Band(name="Band A"),
         city="Frankfurt",
         location="Batschkapp",
         event_date=date(2026, 5, 10),
@@ -44,10 +45,10 @@ class TestEventFromDto:
             subtitle="Sub",
             status="Status",
         )
-        event = load_and_persist._event_from_dto(dto)
+        event = load_and_persist._event_from_dto(dto, Band(name="Band A"))
         assert event.dto_id == "1"
         assert event.source == Source.BATSCHKAPP
-        assert event.band == "Band A"
+        assert event.band_name == "Band A"
         assert event.city == "Frankfurt"
         assert event.location == "Batschkapp"
         assert event.event_date == date(2026, 5, 10)

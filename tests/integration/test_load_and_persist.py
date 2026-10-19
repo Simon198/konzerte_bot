@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 from sqlalchemy import func, select
 
+from models.band import Band
 from models.event import Event, Source
 from models.user import Interest, Observed, User
 from web_scraping import load_and_persist
@@ -31,10 +32,11 @@ def _dto(**overrides) -> EventDTO:
 class TestInsertEvent:
     def test_inserts_event_from_dto(self, wire):
         wire(load_and_persist)
-        event = load_and_persist._insert_event(_dto())
+        event_dto = _dto()
+        event = load_and_persist._insert_event(event_dto, load_and_persist._get_or_create_band(event_dto.band))
         load_and_persist.session.flush()
         assert event.id is not None
-        assert event.band == "Band A"
+        assert event.band_name == "Band A"
 
 
 class TestInsertOrUpdateEvent:
@@ -47,7 +49,7 @@ class TestInsertOrUpdateEvent:
         load_and_persist.session.flush()
 
         assert updated is first
-        assert updated.band == "Band B"
+        assert updated.band_name == "Band B"
         count = load_and_persist.session.scalar(
             select(func.count()).select_from(Event).where(Event.dto_id == "1")
         )
@@ -59,7 +61,7 @@ class TestUpdateEvent:
         wire(load_and_persist)
 
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
             location="L", event_date=date(2026, 5, 10),
         )
         interested = User(id=1, chat_id=100, username="alice")
@@ -69,9 +71,11 @@ class TestUpdateEvent:
         load_and_persist.session.add_all([event, interested, observer])
         load_and_persist.session.commit()
 
-        load_and_persist._update_event(_dto(band="Band B"), event)
+        load_and_persist._update_event(
+            _dto(band="Band B"), event, load_and_persist._get_or_create_band("Band B")
+        )
 
-        assert event.band == "Band B"
+        assert event.band_name == "Band B"
         # the interested user is notified of the change
         fake_bot.send_message.assert_called_once()
         assert fake_bot.send_message.call_args.kwargs["chat_id"] == 100

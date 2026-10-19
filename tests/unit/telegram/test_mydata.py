@@ -3,6 +3,7 @@
 import uuid
 from datetime import date, datetime, timezone
 
+from models.band import Band
 from models.event import Event, Source
 from models.feature import Feature
 from models.user import Interest, Observed, SourceUnsubscription, User
@@ -19,7 +20,7 @@ def _build_user():
         id=uuid.uuid4(),
         dto_id="1",
         source=Source.BATSCHKAPP,
-        band="Band A",
+        band=Band(name="Band A"),
         city="Frankfurt",
         location="Batschkapp",
         event_date=date(2026, 5, 10),
@@ -50,7 +51,7 @@ class TestEventFields:
         }
 
     def test_event(self):
-        event = Event(band="X", city="Y", location="Z", event_date=date(2026, 5, 10))
+        event = Event(band=Band(name="X"), city="Y", location="Z", event_date=date(2026, 5, 10))
         assert _event_fields(event) == {
             "band": "X",
             "city": "Y",
@@ -59,7 +60,7 @@ class TestEventFields:
         }
 
     def test_event_without_date(self):
-        event = Event(band="X", city="Y", location="Z", event_date=None)
+        event = Event(band=Band(name="X"), city="Y", location="Z", event_date=None)
         assert _event_fields(event)["event_date"] is None
 
 

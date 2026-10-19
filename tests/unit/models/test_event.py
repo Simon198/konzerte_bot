@@ -2,6 +2,7 @@
 
 from datetime import date, time
 
+from models.band import Band
 from models.event import Event, Source
 
 
@@ -9,7 +10,7 @@ def make_event(**overrides) -> Event:
     defaults = dict(
         dto_id="1",
         source=Source.BATSCHKAPP,
-        band="Metallica",
+        band=Band(name="Metallica"),
         city="Frankfurt",
         location="Festhalle",
     )

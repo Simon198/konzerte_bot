@@ -2,10 +2,11 @@ import enum
 from datetime import date, datetime, time
 import uuid
 
-from sqlalchemy import Date, DateTime, Enum, String, Time, UUID
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, String, Time, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from . import Base
+from .band import Band
 
 
 class Source(enum.Enum):
@@ -25,7 +26,7 @@ class Event(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(), primary_key=True, default=uuid.uuid4)
     dto_id: Mapped[str] = mapped_column(String(), unique=True, nullable=False)
     source: Mapped[Source] = mapped_column(source_enum, nullable=False)
-    band: Mapped[str] = mapped_column(String(), nullable=False)
+    band_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("bands.id"), nullable=False)
     city: Mapped[str] = mapped_column(String(), nullable=False)
     location: Mapped[str] = mapped_column(String(), nullable=False)
     hint: Mapped[str | None] = mapped_column(String(), nullable=True)
@@ -36,6 +37,8 @@ class Event(Base):
     status: Mapped[str | None] = mapped_column(String(), nullable=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now)
     update_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now)
+
+    band: Mapped["Band"] = relationship(back_populates="events")
 
     interest: Mapped[list["Interest"]] = relationship(
         back_populates="event",
@@ -51,6 +54,11 @@ class Event(Base):
             return "(?)"
         return self.event_date.strftime("%d.%m.%Y")
 
+    @property
+    def band_name(self) -> str | None:
+        """Return the band's name, tolerating a not-yet-loaded relationship."""
+        return self.band.name if self.band is not None else None
+
     def _get_time_without_seconds(self, time_: time):
         return time_.strftime("%H:%M") + " Uhr"
 
@@ -61,7 +69,7 @@ class Event(Base):
         return self._get_time_without_seconds(self.beginn)
 
     def get_short_message_text(self):
-        return f"{self.get_german_date()} - {self.band} ({self.city}-{self.location})"
+        return f"{self.get_german_date()} - {self.band_name} ({self.city}-{self.location})"
 
     def get_message_text(self):
         text = self.get_short_message_text()

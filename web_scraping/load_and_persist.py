@@ -7,6 +7,7 @@ from pathlib import Path
 
 from sqlalchemy import func, or_, select
 
+from models.band import Band
 from models.event import Event, Source
 from models.user import User
 from repository import session
@@ -53,12 +54,21 @@ def _load_all_events():  # pragma: no cover - dynamic scraper import + network I
     )
 
 
-def _event_from_dto(event_dto: EventDTO) -> Event:
+def _get_or_create_band(name: str) -> Band:  # pragma: no cover - DB storage
+    """Return the band named ``name``, creating it if it does not exist yet."""
+    band = session.scalar(select(Band).where(Band.name == name))
+    if band is None:
+        band = Band(name=name)
+        session.add(band)
+    return band
+
+
+def _event_from_dto(event_dto: EventDTO, band: Band) -> Event:
     """Map a scraped ``EventDTO`` to an ``Event`` ORM object (pure)."""
     return Event(
         dto_id=event_dto.id,
         source=event_dto.source,
-        band=event_dto.band,
+        band=band,
         city=event_dto.city,
         location=event_dto.location,
         event_date=event_dto.date,
@@ -70,8 +80,8 @@ def _event_from_dto(event_dto: EventDTO) -> Event:
     )
 
 
-def _insert_event(event_dto: EventDTO):  # pragma: no cover - DB storage
-    event = _event_from_dto(event_dto)
+def _insert_event(event_dto: EventDTO, band: Band):  # pragma: no cover - DB storage
+    event = _event_from_dto(event_dto, band)
     session.add(event)
     return event
 
@@ -116,7 +126,7 @@ def _format_change_texts(changes) -> list[str]:
 def _format_change_message(event: Event, change_texts: list[str]) -> str:
     """Build the message that summarises the changes to an event (pure)."""
     return (
-        f"Es gibt folgende Änderungen zu {event.band} ({event.event_date})\n"
+        f"Es gibt folgende Änderungen zu {event.band_name} ({event.event_date})\n"
         + "\n".join(change_texts)
     )
 
@@ -139,7 +149,6 @@ def _diff_event(event_dto: EventDTO, event: Event) -> dict:
     changes: dict[str, any] = {}
     fields = {
         "source": event_dto.source,
-        "band": event_dto.band,
         "city": event_dto.city,
         "location": event_dto.location,
         "event_date": event_dto.date,
@@ -154,10 +163,15 @@ def _diff_event(event_dto: EventDTO, event: Event) -> dict:
         old_value = getattr(event, attr)
         if old_value != new_value:
             changes[attr] = (old_value, new_value)
+
+    # The band is a related object, so it is compared by name.
+    old_band_name = event.band.name if event.band is not None else None
+    if old_band_name != event_dto.band:
+        changes["band"] = (old_band_name, event_dto.band)
     return changes
 
 
-def _update_event(event_dto: EventDTO, event: Event):  # pragma: no cover - DB + Telegram I/O
+def _update_event(event_dto: EventDTO, event: Event, band: Band):  # pragma: no cover - DB + Telegram I/O
     """
     Update the DB event by the new dto object. If changes have occured, message the users
     """
@@ -169,7 +183,10 @@ def _update_event(event_dto: EventDTO, event: Event):  # pragma: no cover - DB +
         return event
 
     for attr, (_, new_value) in changes.items():
-        setattr(event, attr, new_value)
+        if attr == "band":
+            event.band = band
+        else:
+            setattr(event, attr, new_value)
     event.update_time = datetime.now()
     _update_observed_messages(event, old_message_text)
     _send_message_to_interested_users(event, changes)
@@ -178,10 +195,11 @@ def _update_event(event_dto: EventDTO, event: Event):  # pragma: no cover - DB +
 
 def _insert_or_update_event(event_dto: EventDTO):  # pragma: no cover - DB storage
     event = session.scalar(select(Event).where(Event.dto_id == event_dto.id))
+    band = _get_or_create_band(event_dto.band)
     if event is None:
-        return _insert_event(event_dto)
+        return _insert_event(event_dto, band)
     else:
-        return _update_event(event_dto, event)
+        return _update_event(event_dto, event, band)
 
 
 def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegram I/O

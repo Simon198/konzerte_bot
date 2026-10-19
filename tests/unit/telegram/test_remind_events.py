@@ -2,6 +2,7 @@
 
 from datetime import date, time
 
+from models.band import Band
 from models.event import Event, Source
 from telegram import remind_events
 
@@ -10,7 +11,7 @@ def _event(**overrides):
     defaults = dict(
         dto_id="1",
         source=Source.BATSCHKAPP,
-        band="Band A",
+        band=Band(name="Band A"),
         city="Frankfurt",
         location="Batschkapp",
         event_date=date(2026, 5, 10),

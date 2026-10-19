@@ -3,6 +3,7 @@
 import uuid
 from datetime import date
 
+from models.band import Band
 from models.event import Event, Source
 from telegram import send_events
 
@@ -12,7 +13,7 @@ def test_event_markup_builds_buttons():
         id=uuid.uuid4(),
         dto_id="1",
         source=Source.BATSCHKAPP,
-        band="A",
+        band=Band(name="A"),
         city="F",
         location="L",
         event_date=date(2026, 5, 10),

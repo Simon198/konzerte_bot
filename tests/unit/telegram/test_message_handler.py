@@ -3,6 +3,7 @@
 import uuid
 from datetime import date
 
+from models.band import Band
 from models.event import Event, Source
 from telegram import message_handler
 
@@ -31,7 +32,7 @@ def _event(band, event_date=date(2026, 5, 10)):
         id=uuid.uuid4(),
         dto_id=band,
         source=Source.BATSCHKAPP,
-        band=band,
+        band=Band(name=band),
         city="F",
         location="L",
         event_date=event_date,

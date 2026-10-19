@@ -14,7 +14,7 @@ def _event_fields(event) -> dict:
     if event is None:
         return {"band": None, "city": None, "location": None, "event_date": None}
     return {
-        "band": event.band,
+        "band": event.band_name,
         "city": event.city,
         "location": event.location,
         "event_date": event.event_date.isoformat() if event.event_date else None,
@@ -47,7 +47,7 @@ def build_user_data(user: User) -> dict:
                 "event_id": str(observed.event.id)
                 if observed.event is not None
                 else str(observed.event_id),
-                "band": observed.event.band if observed.event is not None else None,
+                "band": observed.event.band_name if observed.event is not None else None,
                 "message_id": observed.message_id,
             }
             for observed in user.observed

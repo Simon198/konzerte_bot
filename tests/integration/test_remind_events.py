@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from models.band import Band
 from models.event import Event, Source
 from models.user import Interest, User
 from telegram import remind_events
@@ -15,7 +16,7 @@ class TestRemindEvents:
     def test_reminds_interested_users(self, wire, fake_bot):
         wire(remind_events)
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
             location="L", event_date=date.today(),
         )
         user = User(id=1, chat_id=100)

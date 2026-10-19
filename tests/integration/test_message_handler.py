@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import select
 
 from models.changelog import Changelog
+from models.band import Band
 from models.event import Event, Source
 from models.feature import Feature
 from models.poll import Poll
@@ -82,7 +83,7 @@ class TestNextInterestedEvents:
     def test_sends_interested_event(self, wire, make_message, fake_bot):
         wire(message_handler)
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
             location="L", event_date=date(2026, 6, 1),
         )
         user = User(id=1, chat_id=100)
@@ -104,7 +105,7 @@ class TestGo:
         message_handler.session.add(User(id=1, chat_id=100, consent_given=True))
         message_handler.session.add(
             Event(
-                dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
+                dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
                 location="L", event_date=date(2026, 6, 1),
             )
         )
@@ -120,8 +121,8 @@ class TestSources:
     def test_creates_poll_from_distinct_sources(self, wire, make_message, fake_bot):
         wire(message_handler)
         message_handler.session.add_all([
-            Event(dto_id="1", source=Source.BATSCHKAPP, band="A", city="F", location="L", event_date=date(2026, 6, 1)),
-            Event(dto_id="2", source=Source.FESTHALLE, band="B", city="F", location="L", event_date=date(2026, 6, 1)),
+            Event(dto_id="1", source=Source.BATSCHKAPP, band=Band(name="A"), city="F", location="L", event_date=date(2026, 6, 1)),
+            Event(dto_id="2", source=Source.FESTHALLE, band=Band(name="B"), city="F", location="L", event_date=date(2026, 6, 1)),
         ])
         message_handler.session.commit()
 
@@ -147,7 +148,7 @@ class TestPairings:
         admin = User(id=1, chat_id=100, username="admin", is_admin=True)
         other = User(id=2, chat_id=200, username="bob")
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band="Metallica", city="F",
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Metallica"), city="F",
             location="L", event_date=date(2026, 6, 1),
         )
         admin.interest.append(Interest(event=event))

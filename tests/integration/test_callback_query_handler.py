@@ -4,6 +4,7 @@ from datetime import date
 
 import pytest
 
+from models.band import Band
 from models.event import Event, Source
 from models.user import Interest, User
 from telegram import callback_query_handler, prodcast_message, send_events
@@ -14,7 +15,7 @@ pytestmark = pytest.mark.integration
 
 def _event():
     return Event(
-        dto_id="1", source=Source.BATSCHKAPP, band="Band A", city="F",
+        dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
         location="L", event_date=date(2026, 6, 1),
     )
 
