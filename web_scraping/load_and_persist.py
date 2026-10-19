@@ -10,9 +10,11 @@ from sqlalchemy import func, or_, select
 from models.band import Band
 from models.event import Event, Source
 from models.user import User
+from progressbar import tqdm_admin_telegram
 from repository import session
 from telegram import telegram_bot
 
+from .audio_sample import find_audio_sample
 from .dto import EventDTO
 
 logger = logging.getLogger(__name__)
@@ -202,6 +204,18 @@ def _insert_or_update_event(event_dto: EventDTO):  # pragma: no cover - DB stora
         return _update_event(event_dto, event, band)
 
 
+def _fill_missing_audio_samples():  # pragma: no cover - DB + network I/O
+    """Look up and store a YouTube link for every band that has none yet."""
+    bands = session.scalars(select(Band).where(Band.audio_sample.is_(None))).all()
+    for band in tqdm_admin_telegram(bands):
+        link = find_audio_sample(band.name)
+        if link:
+            band.audio_sample = link
+        session.commit()
+        # Be gentle to YouTube so a large first backfill is not rate-limited.
+        time.sleep(1)
+
+
 def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegram I/O
     try:
         logger.info("Start webscraping events")
@@ -226,6 +240,8 @@ def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegr
             session.delete(event)
         session.commit()
         logger.info("Events have been successfully stored")
+
+        _fill_missing_audio_samples()
 
         users = session.scalars(select(User))
         for user in users:

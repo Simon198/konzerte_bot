@@ -9,6 +9,10 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 telegram_formatter = logging.Formatter("[%(levelname)s] %(message)s")
 
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+# ``youtube-search-python`` talks to YouTube through ``httpx``, which logs every
+# HTTP request at INFO level. Suppress it (like urllib3 above) so the daily
+# audio-sample lookups don't spam the Telegram admin log.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 LEVEL_EMOJI = {
     logging.DEBUG: "🐛",  # Debug

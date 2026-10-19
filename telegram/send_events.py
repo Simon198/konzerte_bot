@@ -15,6 +15,11 @@ logger = logging.getLogger(__name__)
 def _event_markup(event: Event) -> InlineKeyboardMarkup:
     """Build the interested / not-interested reply keyboard for an event (pure)."""
     markup = InlineKeyboardMarkup()
+
+    audio_sample = event.band.audio_sample if event.band is not None else None
+    if audio_sample:
+        markup.add(InlineKeyboardButton("Hörprobe", url=audio_sample))
+
     markup.add(
         InlineKeyboardButton("✅ Interesse", callback_data=f"interested;{event.id}"),
         InlineKeyboardButton("❌ Kein Interesse", callback_data=f"not_interested;{event.id}"),

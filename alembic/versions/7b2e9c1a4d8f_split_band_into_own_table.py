@@ -21,20 +21,24 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.create_table(
-        'bands',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('name', sa.String(), nullable=False),
-        sa.Column('audio_sample', sa.String(), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name'),
-    )
+    bind = op.get_bind()
+
+    # ``bands`` may already exist: ``repository.py`` runs ``create_all`` at
+    # import time, which can create it ahead of this migration.
+    if not sa.inspect(bind).has_table("bands"):
+        op.create_table(
+            'bands',
+            sa.Column('id', sa.UUID(), nullable=False),
+            sa.Column('name', sa.String(), nullable=False),
+            sa.Column('audio_sample', sa.String(), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('name'),
+        )
 
     # Add the new foreign key column (nullable for now) so existing rows can be
     # backfilled before the old ``band`` string column is dropped.
     op.add_column('events', sa.Column('band_id', sa.UUID(), nullable=True))
 
-    bind = op.get_bind()
     band_names = [
         row[0]
         for row in bind.execute(
@@ -42,7 +46,9 @@ def upgrade() -> None:
         )
     ]
     for name in band_names:
-        band_id = str(uuid.uuid4())
+        # SQLAlchemy's ``Uuid`` type stores UUIDs on SQLite as 32-char hex
+        # *without* dashes, so the backfilled ids must match that format.
+        band_id = uuid.uuid4().hex
         bind.execute(
             sa.text("INSERT INTO bands (id, name) VALUES (:id, :name)"),
             {"id": band_id, "name": name},

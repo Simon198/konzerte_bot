@@ -81,3 +81,39 @@ class TestUpdateEvent:
         assert fake_bot.send_message.call_args.kwargs["chat_id"] == 100
         # the observed user's message is edited
         fake_bot.edit_message_text.assert_called_once()
+
+
+class _NoopTqdm:
+    def __init__(self, iterable=None, **kwargs):
+        self.iterable = iterable
+
+    def __iter__(self):
+        return iter(self.iterable or [])
+
+    def update(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+
+class TestFillMissingAudioSamples:
+    def test_fills_audio_sample_only_for_bands_without_one(self, wire, monkeypatch):
+        wire(load_and_persist)
+        missing = Band(name="Missing")
+        filled = Band(name="Filled", audio_sample="https://www.youtube.com/watch?v=already")
+        load_and_persist.session.add_all([missing, filled])
+        load_and_persist.session.commit()
+
+        monkeypatch.setattr(load_and_persist, "tqdm_admin_telegram", _NoopTqdm)
+        monkeypatch.setattr(
+            load_and_persist,
+            "find_audio_sample",
+            lambda name: "https://www.youtube.com/watch?v=abc" if name == "Missing" else None,
+        )
+        monkeypatch.setattr("time.sleep", lambda *args, **kwargs: None)
+
+        load_and_persist._fill_missing_audio_samples()
+
+        assert missing.audio_sample == "https://www.youtube.com/watch?v=abc"
+        assert filled.audio_sample == "https://www.youtube.com/watch?v=already"

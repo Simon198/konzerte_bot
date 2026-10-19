@@ -37,8 +37,9 @@
 - [x] Make repository public
 - [x] Add zoom scraper
 - [ ] Create band model containing information
-    - [ ] Add youtube link to a song of the band in the message
+    - [x] Add youtube link to a song of the band in the message
     - [ ] Add classifier to add genre of music
     - [ ] Add classifier to ask category, e.g. Band, Cover-Band, Festival, sonstiges
     - [ ] Add images of bands in the events
 - [ ] Add "select genre" command to only send events to the user with the given genre
+- [ ] Add option to change interest of an event
