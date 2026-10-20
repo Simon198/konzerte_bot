@@ -1,5 +1,6 @@
 import io
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,9 +20,13 @@ PICTURE_FIELDS = (
     "picture_xl",
 )
 
-# Where downloaded band images are stored (relative to the project root).
+# Where downloaded band images are stored. Overridable via the environment so
+# deployments can point at a writable location (the app directory is read-only
+# in production). Defaults to ``<project>/images/bands`` for local development.
 HOME_FOLDER = Path(__file__).resolve().parent.parent
-BAND_IMAGES_DIR = HOME_FOLDER / "images" / "bands"
+BAND_IMAGES_DIR = Path(
+    os.getenv("KONZERTE_BOT_IMAGES_DIR", str(HOME_FOLDER / "images" / "bands"))
+)
 
 # Telegram static stickers must be 512x512 px (one side exactly 512). Band
 # images are downloaded and converted to a WebP sticker of this size.

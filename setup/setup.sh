@@ -46,6 +46,7 @@ LOG_DIR="/var/log/konzerte_bot"
 UNIT_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 DB_FILE="$DB_DIR/concerts.db"
 DB_URL="sqlite:///$DB_FILE"
+IMAGES_DIR="$DB_DIR/images/bands"
 GIT_USER="${GIT_USER:-${SUDO_USER:-root}}"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ fi
 # ── Runtime directories (owned by the service user) ──────────────────────
 say "Creating runtime directories"
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$DB_DIR"
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$IMAGES_DIR"
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$LOG_DIR"
 install -d -m 0755 "$CONFIG_DIR"
 
@@ -238,6 +240,7 @@ Group=$SERVICE_USER
 WorkingDirectory=$APP_DIR
 EnvironmentFile=$ENV_FILE
 Environment=KONZERTE_BOT_DATABASE_URL=$DB_URL
+Environment=KONZERTE_BOT_IMAGES_DIR=$IMAGES_DIR
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=$VENV_DIR/bin/python main.py
 Restart=always

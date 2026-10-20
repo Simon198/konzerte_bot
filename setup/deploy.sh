@@ -25,6 +25,7 @@ SERVICE_USER="konzertebot"
 DB_DIR="/var/lib/konzerte_bot"
 DB_FILE="$DB_DIR/concerts.db"
 DB_URL="sqlite:///$DB_FILE"
+IMAGES_DIR="$DB_DIR/images/bands"
 GIT_USER="${GIT_USER:-${SUDO_USER:-root}}"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -90,6 +91,20 @@ say "Installing/updating dependencies"
 "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt"
 
 run_migrations
+
+# ── Band images ─────────────────────────────────────────────────────────────
+# Band images are stored outside the (read-only) app directory. Ensure the
+# writable directory exists and the service knows where to find it via a
+# systemd drop-in override (kept separate so it survives future deploys).
+say "Ensuring band-images directory and service environment"
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$IMAGES_DIR"
+OVERRIDE_DIR="/etc/systemd/system/$SERVICE_NAME.service.d"
+install -d -m 0755 "$OVERRIDE_DIR"
+cat > "$OVERRIDE_DIR/band-images.conf" <<EOF
+[Service]
+Environment=KONZERTE_BOT_IMAGES_DIR=$IMAGES_DIR
+EOF
+systemctl daemon-reload
 
 # ── Start ──────────────────────────────────────────────────────────────────
 say "Starting service $SERVICE_NAME"
