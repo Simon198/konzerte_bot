@@ -4,6 +4,7 @@ from datetime import date, time
 
 from models.band import Band
 from models.event import Event, Source
+from models.genre import Genre
 
 
 def make_event(**overrides) -> Event:
@@ -47,6 +48,20 @@ class TestGetShortMessageText:
         assert event.get_short_message_text() == "(?) - Metallica (Frankfurt-Festhalle)"
 
 
+class TestGetGenreText:
+    def test_none_without_band(self):
+        assert make_event(band=None).get_genre_text() is None
+
+    def test_none_without_genres(self):
+        assert make_event().get_genre_text() is None
+
+    def test_sorted_comma_separated(self):
+        event = make_event(
+            band=Band(name="Metallica", genres=[Genre(name="Rock"), Genre(name="Pop")])
+        )
+        assert event.get_genre_text() == "Pop, Rock"
+
+
 class TestGetMessageText:
     def test_only_band_information(self):
         event = make_event(event_date=date(2026, 5, 10))
@@ -55,6 +70,12 @@ class TestGetMessageText:
     def test_with_subtitle(self):
         text = make_event(subtitle="Support: Ghost").get_message_text()
         assert "Support: Ghost" in text
+
+    def test_with_genres(self):
+        event = make_event(
+            band=Band(name="Metallica", genres=[Genre(name="Rock"), Genre(name="Pop")])
+        )
+        assert "Genre: Pop, Rock" in event.get_message_text()
 
     def test_with_admission_and_beginn(self):
         event = make_event(admission=time(17, 30), beginn=time(20, 0))

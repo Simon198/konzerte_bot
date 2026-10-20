@@ -35,14 +35,14 @@ def test_event_markup_builds_buttons():
 
 
 def test_event_markup_adds_hoerprobe_button_above_interest_buttons():
-    event = _event(band=Band(name="A", audio_sample="https://www.youtube.com/watch?v=abc"))
+    event = _event(band=Band(name="A", audio_sample="https://www.deezer.com/track/abc"))
     markup = send_events._event_markup(event)
 
     assert len(markup.keyboard) == 2
     hoerprobe_row = markup.keyboard[0]
     assert len(hoerprobe_row) == 1
     assert hoerprobe_row[0].text == "Hörprobe"
-    assert hoerprobe_row[0].url == "https://www.youtube.com/watch?v=abc"
+    assert hoerprobe_row[0].url == "https://www.deezer.com/track/abc"
 
     interest_row = markup.keyboard[1]
     assert interest_row[0].text == "✅ Interesse"
@@ -56,3 +56,24 @@ def test_event_markup_skips_hoerprobe_without_audio_sample():
 
     assert len(markup.keyboard) == 1
     assert markup.keyboard[0][0].text == "✅ Interesse"
+
+
+def test_band_image_path_returns_existing_file(tmp_path):
+    image = tmp_path / "band.jpg"
+    image.write_bytes(b"fake-image")
+
+    event = _event(band=Band(name="A", image_path=str(image)))
+
+    assert send_events._band_image_path(event) == str(image)
+
+
+def test_band_image_path_returns_none_when_missing(tmp_path):
+    missing = tmp_path / "does-not-exist.jpg"
+
+    event = _event(band=Band(name="A", image_path=str(missing)))
+
+    assert send_events._band_image_path(event) is None
+
+
+def test_band_image_path_returns_none_without_image_path():
+    assert send_events._band_image_path(_event(band=Band(name="A"))) is None

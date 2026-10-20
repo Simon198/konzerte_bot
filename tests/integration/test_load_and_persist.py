@@ -7,8 +7,10 @@ from sqlalchemy import func, select
 
 from models.band import Band
 from models.event import Event, Source
+from models.genre import Genre
 from models.user import Interest, Observed, User
 from web_scraping import load_and_persist
+from web_scraping.deezer import BandInfo
 from web_scraping.dto import EventDTO
 
 pytestmark = pytest.mark.integration
@@ -97,23 +99,76 @@ class _NoopTqdm:
         pass
 
 
-class TestFillMissingAudioSamples:
-    def test_fills_audio_sample_only_for_bands_without_one(self, wire, monkeypatch):
+class TestFillMissingBandInformation:
+    def test_fills_only_missing_information(self, wire, monkeypatch):
         wire(load_and_persist)
         missing = Band(name="Missing")
-        filled = Band(name="Filled", audio_sample="https://www.youtube.com/watch?v=already")
-        load_and_persist.session.add_all([missing, filled])
+        partial = Band(name="Partial", audio_sample="https://www.deezer.com/track/existing")
+        complete = Band(
+            name="Complete",
+            audio_sample="https://www.deezer.com/track/existing",
+            image_path="/images/bands/complete.webp",
+            genres=[Genre(name="Rock")],
+        )
+        load_and_persist.session.add_all([missing, partial, complete])
         load_and_persist.session.commit()
 
         monkeypatch.setattr(load_and_persist, "tqdm_admin_telegram", _NoopTqdm)
         monkeypatch.setattr(
             load_and_persist,
-            "find_audio_sample",
-            lambda name: "https://www.youtube.com/watch?v=abc" if name == "Missing" else None,
+            "find_band_information",
+            lambda name: BandInfo(
+                audio_sample="https://www.deezer.com/track/new",
+                image_url="https://cdn.example/band.jpg",
+                genres=["Rock", "Pop"],
+            ),
+        )
+        monkeypatch.setattr(
+            load_and_persist,
+            "download_band_image",
+            lambda url, file_name: f"/images/bands/{file_name}",
         )
         monkeypatch.setattr("time.sleep", lambda *args, **kwargs: None)
 
-        load_and_persist._fill_missing_audio_samples()
+        load_and_persist._fill_missing_band_information()
 
-        assert missing.audio_sample == "https://www.youtube.com/watch?v=abc"
-        assert filled.audio_sample == "https://www.youtube.com/watch?v=already"
+        # fully missing band gets everything
+        assert missing.audio_sample == "https://www.deezer.com/track/new"
+        assert missing.image_path == f"/images/bands/{missing.id}.webp"
+        assert {genre.name for genre in missing.genres} == {"Rock", "Pop"}
+
+        # partial band keeps its audio sample and only fills the rest
+        assert partial.audio_sample == "https://www.deezer.com/track/existing"
+        assert partial.image_path == f"/images/bands/{partial.id}.webp"
+        assert {genre.name for genre in partial.genres} == {"Rock", "Pop"}
+
+        # complete band is left untouched
+        assert complete.audio_sample == "https://www.deezer.com/track/existing"
+        assert complete.image_path == "/images/bands/complete.webp"
+        assert {genre.name for genre in complete.genres} == {"Rock"}
+
+
+class TestDeleteOrphanedBands:
+    def test_deletes_bands_without_events_and_their_image(self, wire, tmp_path):
+        wire(load_and_persist)
+
+        image = tmp_path / "orphan.webp"
+        image.write_bytes(b"image-bytes")
+
+        referenced = Band(name="Referenced")
+        event = Event(
+            dto_id="1", source=Source.BATSCHKAPP, band=referenced,
+            city="F", location="L", event_date=date(2026, 5, 10),
+        )
+        orphaned = Band(name="Orphaned", image_path=str(image))
+        load_and_persist.session.add_all([referenced, event, orphaned])
+        load_and_persist.session.commit()
+
+        referenced_id = referenced.id
+        orphaned_id = orphaned.id
+
+        load_and_persist._delete_orphaned_bands()
+
+        assert load_and_persist.session.get(Band, referenced_id) is not None
+        assert load_and_persist.session.get(Band, orphaned_id) is None
+        assert not image.exists()

@@ -1,5 +1,6 @@
 import importlib
 import logging
+import os
 import threading
 import time
 from datetime import datetime
@@ -9,12 +10,13 @@ from sqlalchemy import func, or_, select
 
 from models.band import Band
 from models.event import Event, Source
+from models.genre import Genre
 from models.user import User
 from progressbar import tqdm_admin_telegram
 from repository import session
 from telegram import telegram_bot
 
-from .audio_sample import find_audio_sample
+from .deezer import download_band_image, find_band_information
 from .dto import EventDTO
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,15 @@ def _get_or_create_band(name: str) -> Band:  # pragma: no cover - DB storage
         band = Band(name=name)
         session.add(band)
     return band
+
+
+def _get_or_create_genre(name: str) -> Genre:  # pragma: no cover - DB storage
+    """Return the genre named ``name``, creating it if it does not exist yet."""
+    genre = session.scalar(select(Genre).where(Genre.name == name))
+    if genre is None:
+        genre = Genre(name=name)
+        session.add(genre)
+    return genre
 
 
 def _event_from_dto(event_dto: EventDTO, band: Band) -> Event:
@@ -204,15 +215,50 @@ def _insert_or_update_event(event_dto: EventDTO):  # pragma: no cover - DB stora
         return _update_event(event_dto, event, band)
 
 
-def _fill_missing_audio_samples():  # pragma: no cover - DB + network I/O
-    """Look up and store a YouTube link for every band that has none yet."""
-    bands = session.scalars(select(Band).where(Band.audio_sample.is_(None))).all()
+def _delete_orphaned_bands():  # pragma: no cover - DB + filesystem I/O
+    """Delete bands no longer referenced by any event, plus their image file."""
+    orphaned_bands = session.scalars(select(Band).where(~Band.events.any())).all()
+    for band in orphaned_bands:
+        if band.image_path and os.path.isfile(band.image_path):
+            try:
+                os.remove(band.image_path)
+            except OSError:
+                logger.exception("Could not remove band image %r", band.image_path)
+        session.delete(band)
+    session.commit()
+
+
+def _fill_missing_band_information():  # pragma: no cover - DB + network I/O
+    """Look up and store any missing audio sample, image or genres per band.
+
+    Only bands missing at least one piece of information are loaded. The Deezer
+    artist is looked up once per band and shared across the missing fields.
+    """
+    bands = session.scalars(
+        select(Band).where(
+            or_(
+                Band.audio_sample.is_(None),
+                Band.image_path.is_(None),
+                ~Band.genres.any(),
+            )
+        )
+    ).all()
     for band in tqdm_admin_telegram(bands):
-        link = find_audio_sample(band.name)
-        if link:
-            band.audio_sample = link
+        info = find_band_information(band.name)
+
+        if band.audio_sample is None and info.audio_sample:
+            band.audio_sample = info.audio_sample
+
+        if band.image_path is None and info.image_url:
+            path = download_band_image(info.image_url, f"{band.id}.webp")
+            if path:
+                band.image_path = path
+
+        if not band.genres and info.genres is not None:
+            band.genres = [_get_or_create_genre(name) for name in info.genres]
+
         session.commit()
-        # Be gentle to YouTube so a large first backfill is not rate-limited.
+        # Be gentle to Deezer so a large first backfill is not rate-limited.
         time.sleep(1)
 
 
@@ -241,7 +287,8 @@ def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegr
         session.commit()
         logger.info("Events have been successfully stored")
 
-        _fill_missing_audio_samples()
+        _delete_orphaned_bands()
+        _fill_missing_band_information()
 
         users = session.scalars(select(User))
         for user in users:

@@ -12,6 +12,8 @@ tqdm>=4.66.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 
-# Audio sample lookup (YouTube search for a band's representative video)
-youtube-search-python==1.6.6
-httpx<0.28  # youtube-search-python 1.6.6 is incompatible with httpx >= 0.28
+# Band enrichment lookups via Deezer (images, genres and top-track audio sample)
+deezer-python>=7.0.0
+
+# Image resizing (band images are resized to a small thumbnail before sending)
+Pillow>=10.0.0

@@ -210,3 +210,6 @@ __marimo__/
 concerts.db
 logs
 concerts.db-journal
+
+# Downloaded band images
+images/

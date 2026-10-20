@@ -1,4 +1,5 @@
 import logging
+import os
 
 from sqlalchemy import and_, not_, select
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -25,6 +26,26 @@ def _event_markup(event: Event) -> InlineKeyboardMarkup:
         InlineKeyboardButton("❌ Kein Interesse", callback_data=f"not_interested;{event.id}"),
     )
     return markup
+
+
+def _band_image_path(event: Event) -> str | None:
+    """Return the band's stored image path if it exists on disk (pure)."""
+    image_path = event.band.image_path if event.band is not None else None
+    if image_path and os.path.isfile(image_path):
+        return image_path
+    return None
+
+
+def _send_band_sticker(event: Event, chat_id: int):  # pragma: no cover - Telegram I/O
+    """Send the band's image as a small sticker."""
+    image_path = _band_image_path(event)
+    if image_path is None:
+        return
+    try:
+        with open(image_path, "rb") as sticker:
+            telegram_bot.send_sticker(chat_id=chat_id, sticker=sticker)
+    except Exception:
+        logger.exception("Could not send band sticker for %r", event.band_name)
 
 
 def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + Telegram I/O
@@ -55,6 +76,7 @@ def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + 
     for event in events:
         markup = _event_markup(event)
 
+        _send_band_sticker(event, user.chat_id)
         message = telegram_bot.send_message(
             chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
         )

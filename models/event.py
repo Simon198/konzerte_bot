@@ -71,10 +71,19 @@ class Event(Base):
     def get_short_message_text(self):
         return f"{self.get_german_date()} - {self.band_name} ({self.city}-{self.location})"
 
+    def get_genre_text(self) -> str | None:
+        """Return the band's genres as a comma-separated string, or ``None``."""
+        if self.band is None or not self.band.genres:
+            return None
+        return ", ".join(sorted(genre.name for genre in self.band.genres))
+
     def get_message_text(self):
         text = self.get_short_message_text()
         if self.subtitle:
             text += "\n" + self.subtitle
+        genre_text = self.get_genre_text()
+        if genre_text:
+            text += "\nGenre: " + genre_text
         if self.admission or self.beginn:
             parts = []
             if self.admission:
