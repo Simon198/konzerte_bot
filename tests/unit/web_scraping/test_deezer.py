@@ -112,6 +112,45 @@ class TestGenreNames:
         assert deezer._genre_names(None) == []
 
 
+class TestBestArtistIndex:
+    def test_picks_most_popular_exact_match(self):
+        artists = [
+            {"name": "Avatar", "nb_fan": 7},
+            {"name": "Avatar", "nb_fan": 80663},
+            {"name": "Avatar", "nb_fan": 5},
+        ]
+        assert deezer._best_artist_index(artists, "Avatar") == 1
+
+    def test_exact_name_beats_more_popular_non_exact_match(self):
+        artists = [
+            {"name": "Avatar & DJ Obi", "nb_fan": 999999},
+            {"name": "Avatar", "nb_fan": 10},
+        ]
+        assert deezer._best_artist_index(artists, "Avatar") == 1
+
+    def test_name_match_is_case_insensitive(self):
+        artists = [
+            {"name": "AVATAR", "nb_fan": 3},
+            {"name": "Avatar", "nb_fan": 30},
+        ]
+        assert deezer._best_artist_index(artists, "avatar") == 1
+
+    def test_strips_whitespace_from_band_name(self):
+        artists = [{"name": "Avatar", "nb_fan": 3}]
+        assert deezer._best_artist_index(artists, "  Avatar  ") == 0
+
+    def test_falls_back_to_first_when_no_fan_counts(self):
+        artists = [{"name": "Avatar"}, {"name": "Avatar"}]
+        assert deezer._best_artist_index(artists, "Avatar") == 0
+
+    def test_none_for_empty_list(self):
+        assert deezer._best_artist_index([], "Avatar") is None
+
+    def test_tolerates_none_entries(self):
+        artists = [None, {"name": "Avatar", "nb_fan": 5}]
+        assert deezer._best_artist_index(artists, "Avatar") == 1
+
+
 class TestToStickerBytes:
     def test_converts_to_512x512_webp(self):
         source = Image.new("RGB", (1000, 500), (255, 0, 0))

@@ -94,6 +94,27 @@ def _genre_names(album: dict) -> list[str]:
     return names
 
 
+def _best_artist_index(artists: list[dict], band_name: str) -> int | None:
+    """Return the index of the most likely artist match for ``band_name`` (pure).
+
+    Deezer's ``search_artists`` ranks same-named artists by relevance, which can
+    surface an obscure artist ahead of the popular one a concert listing refers
+    to (e.g. "Avatar" returns a 7-fan rapper before the metal band). Prefer
+    artists whose name matches ``band_name`` exactly (case-insensitive) and pick
+    the one with the most fans.
+    """
+    if not artists:
+        return None
+    target = band_name.strip().casefold()
+    exact_indices = [
+        i
+        for i, artist in enumerate(artists)
+        if (artist or {}).get("name", "").strip().casefold() == target
+    ]
+    candidates = exact_indices or list(range(len(artists)))
+    return max(candidates, key=lambda i: (artists[i] or {}).get("nb_fan") or 0)
+
+
 def find_band_information(band_name: str) -> BandInfo:  # pragma: no cover - network I/O
     """Search Deezer for ``band_name`` once and derive its information.
 
@@ -106,7 +127,10 @@ def find_band_information(band_name: str) -> BandInfo:  # pragma: no cover - net
             artists = client.search_artists(band_name)
             if not artists:
                 return BandInfo()
-            artist = artists[0]
+            index = _best_artist_index(
+                [artist.as_dict() for artist in artists], band_name
+            )
+            artist = artists[index] if index is not None else artists[0]
 
             info = BandInfo()
             info.image_url = _first_picture_url(artist.as_dict())
