@@ -4,8 +4,8 @@ load_dotenv()
 
 import logger
 import scheduler
-import telegram
 import send_changelog
+import telegram
 
 try:
     telegram.message_handler.setup_bot_commands()

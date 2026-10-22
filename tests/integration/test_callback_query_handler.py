@@ -1,13 +1,14 @@
 """Integration tests for ``telegram.callback_query_handler``."""
 
 from datetime import date
+from unittest.mock import MagicMock
 
 import pytest
 
 from models.band import Band
 from models.event import Event, Source
 from models.genre import Genre
-from models.user import Interest, GenreUnsubscription, User
+from models.user import Interest, GenreUnsubscription, Observed, User
 from telegram import callback_query_handler, prodcast_message, send_events
 from telegram.callback_data import CallbackData
 
@@ -22,10 +23,15 @@ def _event():
 
 
 class TestInterested:
-    def test_adds_interest(self, wire, make_callback_query, fake_bot):
+    def test_adds_interest_and_advances_on_active_event(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
         wire(callback_query_handler, prodcast_message, send_events)
+        advance = MagicMock()
+        monkeypatch.setattr(callback_query_handler, "send_events_to_user", advance)
         event = _event()
         user = User(id=1, chat_id=100, username="alice", consent_given=True)
+        user.observed.append(Observed(event=event, message_id=555))
         callback_query_handler.session.add_all([event, user])
         callback_query_handler.session.commit()
 
@@ -36,15 +42,79 @@ class TestInterested:
         assert len(user.interest) == 1
         assert user.interest[0].event_id == event.id
         fake_bot.edit_message_reply_markup.assert_called_once()
+        markup = fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"]
+        assert markup.keyboard[0][0].text == "❌ Interesse zurücknehmen"
+        advance.assert_called_once()
+
+    def test_interest_on_old_event_does_not_advance(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        advance = MagicMock()
+        monkeypatch.setattr(callback_query_handler, "send_events_to_user", advance)
+        event = _event()
+        newer_event = Event(
+            dto_id="2", source=Source.BATSCHKAPP, band=Band(name="Band B"),
+            city="F", location="L", event_date=date(2026, 6, 2),
+        )
+        user = User(id=1, chat_id=100, username="alice", consent_given=True)
+        user.observed.append(Observed(event=event, message_id=100))
+        user.observed.append(Observed(event=newer_event, message_id=200))
+        callback_query_handler.session.add_all([event, newer_event, user])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(
+                f"{CallbackData.INTERESTED.value};{event.id}", message_id=100
+            )
+        )
+
+        assert len(user.interest) == 1
+        fake_bot.edit_message_reply_markup.assert_called_once()
+        advance.assert_not_called()
 
 
 class TestNotInterested:
-    def test_removes_interest(self, wire, make_callback_query, fake_bot):
+    def test_retract_interest_on_old_event_does_not_advance(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
         wire(callback_query_handler, prodcast_message, send_events)
+        advance = MagicMock()
+        monkeypatch.setattr(callback_query_handler, "send_events_to_user", advance)
         event = _event()
+        newer_event = Event(
+            dto_id="2", source=Source.BATSCHKAPP, band=Band(name="Band B"),
+            city="F", location="L", event_date=date(2026, 6, 2),
+        )
         user = User(id=1, chat_id=100, username="alice", consent_given=True)
         user.interest.append(Interest(event=event))
-        callback_query_handler.session.add(user)
+        user.observed.append(Observed(event=event, message_id=100))
+        user.observed.append(Observed(event=newer_event, message_id=200))
+        callback_query_handler.session.add_all([event, newer_event, user])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(
+                f"{CallbackData.NOT_INTERESTED.value};{event.id}", message_id=100
+            )
+        )
+
+        assert user.interest == []
+        fake_bot.edit_message_reply_markup.assert_called_once()
+        markup = fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"]
+        assert markup.keyboard[0][0].text == "✅ Interesse"
+        advance.assert_not_called()
+
+    def test_skip_active_event_shows_interest_and_advances(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        advance = MagicMock()
+        monkeypatch.setattr(callback_query_handler, "send_events_to_user", advance)
+        event = _event()
+        user = User(id=1, chat_id=100, username="alice", consent_given=True)
+        user.observed.append(Observed(event=event, message_id=555))
+        callback_query_handler.session.add_all([event, user])
         callback_query_handler.session.commit()
 
         callback_query_handler.handle_callback_query(
@@ -52,6 +122,10 @@ class TestNotInterested:
         )
 
         assert user.interest == []
+        fake_bot.edit_message_reply_markup.assert_called_once()
+        markup = fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"]
+        assert markup.keyboard[0][0].text == "✅ Interesse"
+        advance.assert_called_once()
 
 
 class TestConsent:

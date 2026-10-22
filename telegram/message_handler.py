@@ -20,7 +20,7 @@ from .consent import (get_consent_keyboard, get_consent_text,
                       get_datenschutz_keyboard, get_welcome_text)
 from .genre_filter import GENRE_FILTER_TEXT, build_genre_keyboard
 from .mydata import send_user_data
-from .send_events import send_events_to_user
+from .send_events import _event_markup, send_events_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,11 @@ def next_interested_events(message: Message):  # pragma: no cover - DB + Telegra
         )
     else:
         for event in events:
-            telegram_bot.send_message(chat_id=chat_id, text=event.get_message_text())
+            telegram_bot.send_message(
+                chat_id=chat_id,
+                text=event.get_message_text(),
+                reply_markup=_event_markup(event, is_interested=True),
+            )
 
 
 @telegram_bot.message_handler(commands=[Commands.go.name])

@@ -3,12 +3,12 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from telebot.types import CallbackQuery
 
 from models.event import Event
 from models.genre import Genre
-from models.user import GenreUnsubscription, Interest, User
+from models.user import GenreUnsubscription, Interest, Observed, User
 from repository import session
 from utils import TIMEZONE, format_user_name
 
@@ -17,7 +17,7 @@ from .callback_data import CallbackData
 from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE, get_welcome_text
 from .genre_filter import build_genre_keyboard
 from .prodcast_message import prodcast_message_to_admins
-from .send_events import send_events_to_user
+from .send_events import _event_markup, send_events_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +37,14 @@ def _toggle_genre_unsubscription(user: User, genre_id: int) -> None:
             user.genre_unsubscriptions.remove(unsubscription)
             return
     user.genre_unsubscriptions.append(GenreUnsubscription(genre_id=genre_id))
+
+
+def _is_latest_active_event(user_id: int, message_id: int) -> bool:  # pragma: no cover - DB query
+    """Return whether ``message_id`` is the user's most recent event message."""
+    latest_message_id = session.scalar(
+        select(func.max(Observed.message_id)).where(Observed.user_id == user_id)
+    )
+    return message_id == latest_message_id
 
 
 @telegram_bot.callback_query_handler()
@@ -65,12 +73,20 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
         if callback_action == CallbackData.INTERESTED.value:
             event = session.get(Event, uuid.UUID(callback_value))
             user.interest.append(Interest(event=event))
+            session.commit()
 
             prodcast_message_to_admins(
                 f"{display_name} ist interessiert an:\n{event.get_short_message_text()}",
                 user_id,
             )
-            send_events_to_user(user, limit=1)
+            telegram_bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=_event_markup(event, is_interested=True),
+            )
+            if _is_latest_active_event(user_id, message_id):
+                send_events_to_user(user, limit=1)
+            return
         elif callback_action == CallbackData.NOT_INTERESTED.value:
             event = session.get(Event, uuid.UUID(callback_value))
             # ``user.interest`` holds ``Interest`` objects, not ``Event``
@@ -79,7 +95,19 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
                 if interest.event_id == event.id:
                     user.interest.remove(interest)
                     break
-            send_events_to_user(user, limit=1)
+            session.commit()
+
+            # Both "Kein Interesse" (skip) and "zurücknehmen" (retract) land in
+            # the "not interested" state, showing only "Interesse" so the
+            # decision can still be reversed.
+            telegram_bot.edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=_event_markup(event, is_interested=False),
+            )
+            if _is_latest_active_event(user_id, message_id):
+                send_events_to_user(user, limit=1)
+            return
         elif callback_action == CallbackData.CONSENT.value:
             if callback_value == ACCEPT:
                 if user is None:

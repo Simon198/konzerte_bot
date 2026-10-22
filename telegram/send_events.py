@@ -14,8 +14,16 @@ from . import telegram_bot
 logger = logging.getLogger(__name__)
 
 
-def _event_markup(event: Event) -> InlineKeyboardMarkup:
-    """Build the interested / not-interested reply keyboard for an event (pure)."""
+def _event_markup(
+    event: Event, is_interested: bool | None = None
+) -> InlineKeyboardMarkup:
+    """Build the interest reply keyboard for an event (pure).
+
+    ``is_interested`` reflects the user's current decision:
+    - ``None`` (undecided): show "Interesse" and "Kein Interesse" (skip),
+    - ``True``: show only "zurücknehmen",
+    - ``False``: show only "Interesse", so a skip can still be reversed.
+    """
     markup = InlineKeyboardMarkup()
 
     link_buttons = []
@@ -27,10 +35,28 @@ def _event_markup(event: Event) -> InlineKeyboardMarkup:
     if link_buttons:
         markup.add(*link_buttons)
 
-    markup.add(
-        InlineKeyboardButton("✅ Interesse", callback_data=f"interested;{event.id}"),
-        InlineKeyboardButton("❌ Kein Interesse", callback_data=f"not_interested;{event.id}"),
-    )
+    if is_interested:
+        markup.add(
+            InlineKeyboardButton(
+                "❌ Interesse zurücknehmen",
+                callback_data=f"not_interested;{event.id}",
+            )
+        )
+    elif is_interested is False:
+        markup.add(
+            InlineKeyboardButton(
+                "✅ Interesse", callback_data=f"interested;{event.id}"
+            )
+        )
+    else:
+        markup.add(
+            InlineKeyboardButton(
+                "✅ Interesse", callback_data=f"interested;{event.id}"
+            ),
+            InlineKeyboardButton(
+                "❌ Kein Interesse", callback_data=f"not_interested;{event.id}"
+            ),
+        )
     return markup
 
 
