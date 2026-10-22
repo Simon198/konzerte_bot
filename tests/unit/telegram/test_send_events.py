@@ -58,6 +58,46 @@ def test_event_markup_skips_hoerprobe_without_audio_sample():
     assert markup.keyboard[0][0].text == "✅ Interesse"
 
 
+def test_event_markup_adds_tickets_button_next_to_hoerprobe():
+    event = _event(
+        band=Band(name="A", audio_sample="https://www.deezer.com/track/abc"),
+        url="https://www.batschkapp.net/events/example",
+    )
+    markup = send_events._event_markup(event)
+
+    assert len(markup.keyboard) == 2
+    link_row = markup.keyboard[0]
+    assert len(link_row) == 2
+    assert link_row[0].text == "Hörprobe"
+    assert link_row[0].url == "https://www.deezer.com/track/abc"
+    assert link_row[1].text == "Tickets"
+    assert link_row[1].url == "https://www.batschkapp.net/events/example"
+
+    interest_row = markup.keyboard[1]
+    assert interest_row[0].text == "✅ Interesse"
+    assert interest_row[1].text == "❌ Kein Interesse"
+
+
+def test_event_markup_adds_tickets_button_without_audio_sample():
+    event = _event(url="https://www.batschkapp.net/events/example")
+    markup = send_events._event_markup(event)
+
+    assert len(markup.keyboard) == 2
+    link_row = markup.keyboard[0]
+    assert len(link_row) == 1
+    assert link_row[0].text == "Tickets"
+    assert link_row[0].url == "https://www.batschkapp.net/events/example"
+
+
+def test_event_markup_skips_tickets_without_url():
+    markup = send_events._event_markup(
+        _event(band=Band(name="A", audio_sample="https://www.deezer.com/track/abc"))
+    )
+
+    assert len(markup.keyboard) == 2
+    assert markup.keyboard[0][0].text == "Hörprobe"
+
+
 def test_band_image_path_returns_existing_file(tmp_path):
     image = tmp_path / "band.jpg"
     image.write_bytes(b"fake-image")

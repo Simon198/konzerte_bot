@@ -35,6 +35,7 @@ class Event(Base):
     beginn: Mapped[time | None] = mapped_column(Time(), nullable=True)
     subtitle: Mapped[str | None] = mapped_column(String(), nullable=True)
     status: Mapped[str | None] = mapped_column(String(), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(), nullable=True)
     creation_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now)
     update_time: Mapped[datetime] = mapped_column(DateTime(), default=datetime.now)
 

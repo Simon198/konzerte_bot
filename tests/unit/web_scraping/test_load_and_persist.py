@@ -44,6 +44,7 @@ class TestEventFromDto:
             hint="Ausverkauft",
             subtitle="Sub",
             status="Status",
+            url="https://www.batschkapp.net/events/example",
         )
         event = load_and_persist._event_from_dto(dto, Band(name="Band A"))
         assert event.dto_id == "1"
@@ -57,6 +58,7 @@ class TestEventFromDto:
         assert event.hint == "Ausverkauft"
         assert event.subtitle == "Sub"
         assert event.status == "Status"
+        assert event.url == "https://www.batschkapp.net/events/example"
 
 
 class TestDiffEvent:
@@ -72,6 +74,12 @@ class TestDiffEvent:
             make_dto(date=date(2026, 6, 1)), make_event()
         )
         assert changes == {"event_date": (date(2026, 5, 10), date(2026, 6, 1))}
+
+    def test_detects_url_change(self):
+        changes = load_and_persist._diff_event(
+            make_dto(url="https://www.batschkapp.net/events/new"), make_event()
+        )
+        assert changes == {"url": (None, "https://www.batschkapp.net/events/new")}
 
 
 class TestFormatChangeTexts:

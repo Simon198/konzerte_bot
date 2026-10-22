@@ -90,6 +90,7 @@ def _event_from_dto(event_dto: EventDTO, band: Band) -> Event:
         hint=event_dto.hint,
         subtitle=event_dto.subtitle,
         status=event_dto.status,
+        url=event_dto.url,
     )
 
 
@@ -170,6 +171,7 @@ def _diff_event(event_dto: EventDTO, event: Event) -> dict:
         "hint": event_dto.hint,
         "subtitle": event_dto.subtitle,
         "status": event_dto.status,
+        "url": event_dto.url,
     }
 
     for attr, new_value in fields.items():

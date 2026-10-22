@@ -17,3 +17,4 @@ class EventDTO:
     hint: str | None = None
     subtitle: str | None = None
     status: str | None = None
+    url: str | None = None

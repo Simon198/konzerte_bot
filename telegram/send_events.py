@@ -18,9 +18,14 @@ def _event_markup(event: Event) -> InlineKeyboardMarkup:
     """Build the interested / not-interested reply keyboard for an event (pure)."""
     markup = InlineKeyboardMarkup()
 
+    link_buttons = []
     audio_sample = event.band.audio_sample if event.band is not None else None
     if audio_sample:
-        markup.add(InlineKeyboardButton("Hörprobe", url=audio_sample))
+        link_buttons.append(InlineKeyboardButton("Hörprobe", url=audio_sample))
+    if event.url:
+        link_buttons.append(InlineKeyboardButton("Tickets", url=event.url))
+    if link_buttons:
+        markup.add(*link_buttons)
 
     markup.add(
         InlineKeyboardButton("✅ Interesse", callback_data=f"interested;{event.id}"),
