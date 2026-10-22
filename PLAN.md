@@ -40,5 +40,7 @@
     - [x] Add link to a song of the band in the message
     - [x] Add classifier to add genre of music
     - [x] Add images of bands in the events
-- [ ] Add "select genre" command to only send events to the user with the given genre
+- [x] Add "select genre" command to only send events to the user with the given genre
+- [ ] Update Bot description
+- [ ] Add link to event from scraper and send in message
 - [ ] Add option to change interest of an event

@@ -6,7 +6,8 @@ import pytest
 
 from models.band import Band
 from models.event import Event, Source
-from models.user import Interest, User
+from models.genre import Genre
+from models.user import Interest, GenreUnsubscription, User
 from telegram import callback_query_handler, prodcast_message, send_events
 from telegram.callback_data import CallbackData
 
@@ -103,3 +104,46 @@ class TestConsent:
         ]
         assert "Alice Schmidt tritt der Gang bei" in texts
         assert not any("@None" in text for text in texts)
+
+
+class TestGenre:
+    def test_toggles_genre_unsubscription(self, wire, make_callback_query, fake_bot):
+        wire(callback_query_handler, prodcast_message, send_events)
+        callback_query_handler.session.add(User(id=1, chat_id=100, username="alice"))
+        callback_query_handler.session.add(Genre(id=5, name="Metal"))
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.GENRE.value};5")
+        )
+
+        user = callback_query_handler.session.get(User, 1)
+        assert {u.genre_id for u in user.genre_unsubscriptions} == {5}
+
+    def test_toggling_again_removes_unsubscription(
+        self, wire, make_callback_query, fake_bot
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        user = User(id=1, chat_id=100, username="alice")
+        user.genre_unsubscriptions.append(GenreUnsubscription(genre_id=5))
+        callback_query_handler.session.add(user)
+        callback_query_handler.session.add(Genre(id=5, name="Metal"))
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.GENRE.value};5")
+        )
+
+        assert callback_query_handler.session.get(User, 1).genre_unsubscriptions == []
+
+    def test_done_removes_keyboard(self, wire, make_callback_query, fake_bot):
+        wire(callback_query_handler, prodcast_message, send_events)
+        callback_query_handler.session.add(User(id=1, chat_id=100, username="alice"))
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.GENRE_DONE.value};done")
+        )
+
+        fake_bot.edit_message_reply_markup.assert_called_once()
+        assert fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"] is None

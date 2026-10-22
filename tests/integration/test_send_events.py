@@ -7,7 +7,8 @@ import pytest
 
 from models.band import Band
 from models.event import Event, Source
-from models.user import Observed, SourceUnsubscription, User
+from models.genre import Genre
+from models.user import Observed, SourceUnsubscription, GenreUnsubscription, User
 from telegram import send_events
 
 pytestmark = pytest.mark.integration
@@ -45,3 +46,31 @@ class TestSendEventsToUser:
         assert "Band C" in fake_bot.send_message.call_args.kwargs["text"]
         # the sent event is now recorded as observed
         assert candidate.id in {o.event_id for o in user.observed}
+
+    def test_excludes_events_with_disliked_genre(self, wire, fake_bot):
+        wire(send_events)
+        metal = Genre(id=1, name="Metal")
+        blocked = Event(
+            dto_id="1", source=Source.BATSCHKAPP,
+            band=Band(name="Blocked", genres=[metal]), city="F",
+            location="L", event_date=date(2026, 6, 1),
+        )
+        candidate = Event(
+            dto_id="2", source=Source.BATSCHKAPP,
+            band=Band(name="Band C", genres=[Genre(id=2, name="Rock")]), city="F",
+            location="L", event_date=date(2026, 6, 2),
+        )
+        send_events.session.add_all([blocked, candidate])
+        send_events.session.flush()
+
+        user = User(id=1, chat_id=100)
+        user.genre_unsubscriptions.append(GenreUnsubscription(genre_id=metal.id))
+        send_events.session.add(user)
+        send_events.session.commit()
+
+        fake_bot.send_message.return_value = types.SimpleNamespace(id=1)
+
+        send_events.send_events_to_user(user, limit=10)
+
+        fake_bot.send_message.assert_called_once()
+        assert "Band C" in fake_bot.send_message.call_args.kwargs["text"]

@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.event import Event, Source, source_enum
+from models.genre import Genre
 
 from . import Base
 
@@ -24,6 +25,10 @@ class User(Base):
     )
     consent_version: Mapped[str | None] = mapped_column(String(), nullable=True)
     source_unsubscriptions: Mapped[list["SourceUnsubscription"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    genre_unsubscriptions: Mapped[list["GenreUnsubscription"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -63,3 +68,13 @@ class SourceUnsubscription(Base):
     source: Mapped[Source] = mapped_column(source_enum, nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["User"] = relationship(back_populates="source_unsubscriptions")
+
+
+class GenreUnsubscription(Base):
+    __tablename__ = "genre_unsubscriptions"
+
+    id: Mapped[int] = mapped_column(Integer(), primary_key=True)
+    genre_id: Mapped[int] = mapped_column(ForeignKey("genres.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped["User"] = relationship(back_populates="genre_unsubscriptions")
+    genre: Mapped["Genre"] = relationship()

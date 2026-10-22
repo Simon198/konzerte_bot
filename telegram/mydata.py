@@ -55,6 +55,12 @@ def build_user_data(user: User) -> dict:
         "source_unsubscriptions": [
             unsubscription.source.value for unsubscription in user.source_unsubscriptions
         ],
+        "genre_unsubscriptions": [
+            unsubscription.genre.name
+            if unsubscription.genre is not None
+            else str(unsubscription.genre_id)
+            for unsubscription in user.genre_unsubscriptions
+        ],
     }
 
 
@@ -89,6 +95,17 @@ def _build_summary(user: User) -> str:
         lines.append("Abbestellte Quellen:")
         for unsubscription in user.source_unsubscriptions:
             lines.append(f"  • {unsubscription.source.value}")
+        lines.append("")
+
+    if user.genre_unsubscriptions:
+        lines.append("Abgewählte Genres:")
+        for unsubscription in user.genre_unsubscriptions:
+            name = (
+                unsubscription.genre.name
+                if unsubscription.genre is not None
+                else str(unsubscription.genre_id)
+            )
+            lines.append(f"  • {name}")
         lines.append("")
 
     lines.append(f"Bereits angezeigte Konzerte: {len(user.observed)}")

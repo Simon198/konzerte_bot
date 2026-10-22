@@ -5,6 +5,7 @@ from sqlalchemy import and_, not_, select
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from models.event import Event
+from models.genre import band_genres
 from models.user import Observed, User
 from repository import session
 
@@ -49,25 +50,40 @@ def _send_band_sticker(event: Event, chat_id: int):  # pragma: no cover - Telegr
 
 
 def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + Telegram I/O
-    stmt = (
-        select(Event)
-        .where(
-            and_(
-                not_(
-                    Event.id.in_(
-                        select(Observed.event_id)
-                        .distinct()
-                        .where(Observed.user_id == user.id)
-                    )
-                ),
-                not_(
-                    Event.source.in_(
-                        unsubscription.source
-                        for unsubscription in user.source_unsubscriptions
-                    )
-                ),
+    conditions = [
+        not_(
+            Event.id.in_(
+                select(Observed.event_id)
+                .distinct()
+                .where(Observed.user_id == user.id)
+            )
+        ),
+        not_(
+            Event.source.in_(
+                unsubscription.source
+                for unsubscription in user.source_unsubscriptions
+            )
+        ),
+    ]
+
+    # Exclude events whose band is tagged with a genre the user dislikes. Only
+    # disliked genres are stored, so newly created genres are subscribed by
+    # default without iterating over every user.
+    disliked_genre_ids = [u.genre_id for u in user.genre_unsubscriptions]
+    if disliked_genre_ids:
+        conditions.append(
+            not_(
+                Event.id.in_(
+                    select(Event.id)
+                    .join(band_genres, band_genres.c.band_id == Event.band_id)
+                    .where(band_genres.c.genre_id.in_(disliked_genre_ids))
+                )
             )
         )
+
+    stmt = (
+        select(Event)
+        .where(and_(*conditions))
         .order_by(Event.event_date.is_(None), Event.event_date, Event.beginn)
         .limit(limit)
     )

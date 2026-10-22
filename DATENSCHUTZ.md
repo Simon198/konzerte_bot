@@ -35,6 +35,7 @@ die du jederzeit widerrufen kannst.
 | Interessen | Konzerte, für die du „Interesse“ markiert hast | Empfehlungen und Erinnerungen |
 | Bereits angezeigte Konzerte | Event-ID + Message-ID | Vermeidung doppelter Empfehlungen, Aktualisierung von Nachrichten |
 | Abbestellte Quellen | Veranstaltungsorte | Anpassung deiner Empfehlungen |
+| Abbestellte Genres | Musikrichtungen, die du nicht erhalten möchtest | Anpassung deiner Empfehlungen |
 | Admin-Status | ja/nein | Zugriffskontrolle |
 | Log-Daten | Nutzer-ID, Zeitstempel, Fehlermeldungen | Sicherstellung von Stabilität und Sicherheit |
 
@@ -43,7 +44,7 @@ die du jederzeit widerrufen kannst.
 Die Daten werden ausschließlich verarbeitet, um
 
 - den Bot zu betreiben und dir Konzertempfehlungen und Erinnerungen zu senden,
-- deine Einstellungen (Quellen, Interessen) zu speichern und zu berücksichtigen,
+- deine Einstellungen (Quellen, Genres, Interessen) zu speichern und zu berücksichtigen,
 - den Betrieb des Bots technisch abzusichern und Fehler zu beheben (Logging).
 
 Eine darüber hinausgehende Verwendung findet nicht statt.

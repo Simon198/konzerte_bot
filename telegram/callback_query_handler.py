@@ -3,16 +3,19 @@ import uuid
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from telebot.types import CallbackQuery
 
 from models.event import Event
-from models.user import Interest, User
+from models.genre import Genre
+from models.user import GenreUnsubscription, Interest, User
 from repository import session
 from utils import TIMEZONE, format_user_name
 
 from . import telegram_bot
 from .callback_data import CallbackData
 from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE, get_welcome_text
+from .genre_filter import build_genre_keyboard
 from .prodcast_message import prodcast_message_to_admins
 from .send_events import send_events_to_user
 
@@ -25,6 +28,15 @@ def _parse_callback_data(data: str) -> tuple[str, str] | None:
     if len(parts) != 2:
         return None
     return parts[0], parts[1]
+
+
+def _toggle_genre_unsubscription(user: User, genre_id: int) -> None:
+    """Add or remove ``genre_id`` from the user's disliked genres (pure)."""
+    for unsubscription in user.genre_unsubscriptions:
+        if unsubscription.genre_id == genre_id:
+            user.genre_unsubscriptions.remove(unsubscription)
+            return
+    user.genre_unsubscriptions.append(GenreUnsubscription(genre_id=genre_id))
 
 
 @telegram_bot.callback_query_handler()
@@ -96,6 +108,29 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
                 logger.warning(
                     f"An unknown consent callback value has been sent by the user: {callback_value}"
                 )
+        elif callback_action == CallbackData.GENRE.value:
+            if user is None:
+                logger.warning(f"Genre callback from unknown user {user_id}")
+                telegram_bot.send_message(
+                    chat_id=chat_id, text="Bitte starte mich zuerst mit /start."
+                )
+            else:
+                _toggle_genre_unsubscription(user, int(callback_value))
+                session.commit()
+                genres = session.scalars(select(Genre).order_by(Genre.name)).all()
+                disliked_ids = {u.genre_id for u in user.genre_unsubscriptions}
+                telegram_bot.edit_message_reply_markup(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    reply_markup=build_genre_keyboard(genres, disliked_ids),
+                )
+            return
+        elif callback_action == CallbackData.GENRE_DONE.value:
+            session.commit()
+            telegram_bot.edit_message_reply_markup(
+                chat_id=chat_id, message_id=message_id, reply_markup=None
+            )
+            return
         else:
             logger.warning(
                 f"An unknown query callback action has been sent by the user: {callback_action}"

@@ -7,6 +7,7 @@ def test_commands_have_expected_members():
     assert {command.name for command in Commands} == {
         "start",
         "sources",
+        "genres",
         "go",
         "next",
         "changelog",

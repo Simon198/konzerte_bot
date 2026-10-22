@@ -5,7 +5,8 @@ from datetime import date, datetime, timezone
 
 from models.band import Band
 from models.event import Event, Source
-from models.user import Interest, Observed, SourceUnsubscription, User
+from models.genre import Genre
+from models.user import Interest, Observed, SourceUnsubscription, GenreUnsubscription, User
 from telegram.mydata import (
     _build_json_bytes,
     _build_summary,
@@ -36,6 +37,9 @@ def _build_user():
     user.interest.append(Interest(event=event))
     user.observed.append(Observed(event=event, message_id=555))
     user.source_unsubscriptions.append(SourceUnsubscription(source=Source.FESTHALLE))
+    user.genre_unsubscriptions.append(
+        GenreUnsubscription(genre_id=7, genre=Genre(id=7, name="Metal"))
+    )
     return user, event
 
 
@@ -91,6 +95,10 @@ class TestBuildUserData:
         user, _ = _build_user()
         assert build_user_data(user)["source_unsubscriptions"] == ["Festhalle"]
 
+    def test_genre_unsubscriptions(self):
+        user, _ = _build_user()
+        assert build_user_data(user)["genre_unsubscriptions"] == ["Metal"]
+
 
 class TestBuildSummary:
     def test_contains_dsgvo_fields(self):
@@ -108,6 +116,12 @@ class TestBuildSummary:
         assert "Benutzername: (keiner)" in summary
         assert "Admin: nein" in summary
         assert "Einwilligung: nicht erteilt" in summary
+
+    def test_lists_genre_unsubscriptions(self):
+        user, _ = _build_user()
+        summary = _build_summary(user)
+        assert "Abgewählte Genres:" in summary
+        assert "Metal" in summary
 
     def test_orphaned_interest_without_event(self):
         user = User(id=3, chat_id=300, username="bob", consent_given=True)

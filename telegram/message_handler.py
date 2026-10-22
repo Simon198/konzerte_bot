@@ -7,6 +7,7 @@ from telebot.types import BotCommand, Message
 from models.changelog import Changelog
 from models.band import Band
 from models.event import Event, Source
+from models.genre import Genre
 from models.poll import Poll, PollOption
 from models.user import Interest, User
 from repository import session
@@ -17,6 +18,7 @@ from . import telegram_bot
 from .command import Commands
 from .consent import (get_consent_keyboard, get_consent_text,
                       get_datenschutz_keyboard, get_welcome_text)
+from .genre_filter import GENRE_FILTER_TEXT, build_genre_keyboard
 from .mydata import send_user_data
 from .send_events import send_events_to_user
 
@@ -106,6 +108,31 @@ def sources(message: Message):  # pragma: no cover - DB + Telegram I/O
     )
     session.add(poll)
     session.commit()
+
+
+@telegram_bot.message_handler(commands=[Commands.genres.name])
+def genres(message: Message):  # pragma: no cover - DB + Telegram I/O
+    chat_id = message.chat.id
+    user = session.get(User, message.from_user.id)
+    if user is None:
+        telegram_bot.send_message(
+            chat_id=chat_id, text="Bitte starte mich zuerst mit /start."
+        )
+        return
+
+    genre_list = session.scalars(select(Genre).order_by(Genre.name)).all()
+    if not genre_list:
+        telegram_bot.send_message(
+            chat_id=chat_id, text="Es sind noch keine Genres hinterlegt."
+        )
+        return
+
+    disliked_ids = {u.genre_id for u in user.genre_unsubscriptions}
+    telegram_bot.send_message(
+        chat_id=chat_id,
+        text=GENRE_FILTER_TEXT,
+        reply_markup=build_genre_keyboard(genre_list, disliked_ids),
+    )
 
 
 @telegram_bot.message_handler(commands=[Commands.next.name])

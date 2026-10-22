@@ -8,6 +8,7 @@ import pytest
 from models.changelog import Changelog
 from models.band import Band
 from models.event import Event, Source
+from models.genre import Genre
 from models.poll import Poll
 from models.user import Interest, User
 from telegram import message_handler, mydata, send_events
@@ -124,6 +125,35 @@ class TestSources:
         poll = message_handler.session.get(Poll, 123)
         assert poll is not None
         assert {o.source for o in poll.poll_options} == {Source.BATSCHKAPP, Source.FESTHALLE}
+
+
+class TestGenres:
+    def test_sends_genre_keyboard(self, wire, make_message, fake_bot):
+        wire(message_handler)
+        message_handler.session.add(User(id=1, chat_id=100, username="alice"))
+        message_handler.session.add_all([
+            Genre(id=1, name="Rock"),
+            Genre(id=2, name="Pop"),
+        ])
+        message_handler.session.commit()
+
+        message_handler.genres(make_message(user_id=1, chat_id=100))
+
+        fake_bot.send_message.assert_called_once()
+        kwargs = fake_bot.send_message.call_args.kwargs
+        markup = kwargs["reply_markup"]
+        button_texts = [row[0].text for row in markup.keyboard]
+        assert "Rock" in button_texts
+        assert "Pop" in button_texts
+        assert "✅ Fertig" in button_texts
+
+    def test_unknown_user_gets_start_hint(self, wire, make_message, fake_bot):
+        wire(message_handler)
+
+        message_handler.genres(make_message(user_id=1, chat_id=100))
+
+        fake_bot.send_message.assert_called_once()
+        assert "Bitte starte mich zuerst mit /start" in fake_bot.send_message.call_args.kwargs["text"]
 
 
 class TestPairings:
