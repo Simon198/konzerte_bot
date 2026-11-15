@@ -198,7 +198,7 @@ class TestFillMissingStickerFileIds:
             calls.append(1)
             return original_admin_user()
 
-        monkeypatch.setattr(load_and_persist, "admin_user", spy_admin_user)
+        monkeypatch.setattr(load_and_persist, "_admin_user", spy_admin_user)
 
         load_and_persist._fill_missing_sticker_file_ids()
 

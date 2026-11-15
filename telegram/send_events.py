@@ -8,7 +8,13 @@ from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from models.band import Band
 from models.event import Event
 from models.genre import band_genres
-from models.user import Observed, User
+from models.user import (
+    GenreUnsubscription,
+    Interest,
+    Observed,
+    SourceUnsubscription,
+    User,
+)
 from repository import session
 
 from . import telegram_bot
@@ -33,7 +39,7 @@ def _lock_for_user(user_id: int) -> threading.Lock:
 
 
 def _event_markup(
-    event: Event, is_interested: bool | None = None
+    event: Event, is_interested: bool | None = None, is_admin: bool = False
 ) -> InlineKeyboardMarkup:
     """Build the interest reply keyboard for an event (pure).
 
@@ -41,6 +47,9 @@ def _event_markup(
     - ``None`` (undecided): show "Interesse" and "Kein Interesse" (skip),
     - ``True``: show only "zurücknehmen",
     - ``False``: show only "Interesse", so a skip can still be reversed.
+
+    Admins additionally get a "Broadcast" button to the left of the interest
+    buttons once they are interested in the event.
     """
     markup = InlineKeyboardMarkup()
 
@@ -54,12 +63,20 @@ def _event_markup(
         markup.add(*link_buttons)
 
     if is_interested:
-        markup.add(
+        buttons = []
+        if is_admin:
+            buttons.append(
+                InlineKeyboardButton(
+                    "📣 Broadcast", callback_data=f"broadcast;{event.id}"
+                )
+            )
+        buttons.append(
             InlineKeyboardButton(
                 "❌ Interesse zurücknehmen",
                 callback_data=f"not_interested;{event.id}",
             )
         )
+        markup.add(*buttons)
     elif is_interested is False:
         markup.add(
             InlineKeyboardButton(
@@ -233,3 +250,62 @@ def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + 
             if session.get(Observed, (user.id, event.id)) is None:
                 user.observed.append(Observed(event_id=event.id, message_id=message.id))
                 session.commit()
+
+
+def broadcast_event_to_users(
+    event: Event, exclude_user_id: int | None = None
+):  # pragma: no cover - DB + Telegram I/O
+    """Send ``event`` to every user a broadcast targets.
+
+    A broadcast reaches users who are not interested in the event, have not yet
+    been sent the event, and have not unsubscribed from the event's source or any
+    of its band's genres. ``exclude_user_id`` (the admin triggering the
+    broadcast) is skipped as well, defensively.
+    """
+    band_genre_ids = select(band_genres.c.genre_id).where(
+        band_genres.c.band_id == event.band_id
+    )
+
+    conditions = [
+        not_(
+            User.id.in_(
+                select(Interest.user_id).where(Interest.event_id == event.id)
+            )
+        ),
+        not_(
+            User.id.in_(
+                select(Observed.user_id).where(Observed.event_id == event.id)
+            )
+        ),
+        not_(
+            User.id.in_(
+                select(SourceUnsubscription.user_id).where(
+                    SourceUnsubscription.source == event.source
+                )
+            )
+        ),
+        not_(
+            User.id.in_(
+                select(GenreUnsubscription.user_id).where(
+                    GenreUnsubscription.genre_id.in_(band_genre_ids)
+                )
+            )
+        ),
+    ]
+    if exclude_user_id is not None:
+        conditions.append(User.id != exclude_user_id)
+
+    users = session.scalars(select(User).where(and_(*conditions))).all()
+    for user in users:
+        markup = _event_markup(event)
+
+        _send_band_sticker(event, user.chat_id)
+        message = telegram_bot.send_message(
+            chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
+        )
+
+        # ``Observed`` has a composite primary key; skip the insert if the event
+        # was already recorded (defensive, in case a concurrent send recorded it).
+        if session.get(Observed, (user.id, event.id)) is None:
+            user.observed.append(Observed(event_id=event.id, message_id=message.id))
+            session.commit()

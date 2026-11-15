@@ -17,7 +17,8 @@ from .callback_data import CallbackData
 from .consent import ACCEPT, DATENSCHUTZ_VERSION, DECLINE, get_welcome_text
 from .genre_filter import build_genre_keyboard
 from .prodcast_message import prodcast_message_to_admins
-from .send_events import _event_markup, send_events_to_user
+from .send_events import (_event_markup, broadcast_event_to_users,
+                          send_events_to_user)
 
 logger = logging.getLogger(__name__)
 
@@ -114,10 +115,42 @@ def _handle_interest_callback(
     telegram_bot.edit_message_reply_markup(
         chat_id=chat_id,
         message_id=message_id,
-        reply_markup=_event_markup(event, is_interested=is_interested),
+        reply_markup=_event_markup(
+            event, is_interested=is_interested, is_admin=user.is_admin
+        ),
     )
     if _is_latest_active_event(user_id, message_id):
         send_events_to_user(user, limit=1)
+
+
+def _handle_broadcast_callback(
+    callback_value: str,
+    user: User | None,
+    user_id: int,
+    chat_id: int,
+    message_id: int,
+) -> None:  # pragma: no cover - DB + Telegram I/O
+    """Handle a "Broadcast" callback from an admin."""
+    if user is None or not user.is_admin:
+        logger.warning(f"Broadcast callback from non-admin user {user_id}")
+        telegram_bot.send_message(
+            chat_id=chat_id, text="Du hast keine Berechtigung für diese Aktion."
+        )
+        _clear_callback_markup(chat_id, message_id)
+        return
+
+    event_id = _parse_event_id(callback_value)
+    event = session.get(Event, event_id) if event_id is not None else None
+    if event is None:
+        logger.warning(f"Broadcast callback references missing event {callback_value}")
+        _clear_callback_markup(chat_id, message_id)
+        return
+
+    broadcast_event_to_users(event, exclude_user_id=user.id)
+    telegram_bot.send_message(
+        chat_id=chat_id,
+        text=f"Das Konzert {event.band_name} wurde an alle berechtigten Nutzer gesendet.",
+    )
 
 
 @telegram_bot.callback_query_handler()
@@ -164,6 +197,15 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
                 message_id=message_id,
                 display_name=display_name,
                 is_interested=False,
+            )
+            return
+        elif callback_action == CallbackData.BROADCAST.value:
+            _handle_broadcast_callback(
+                callback_value=callback_value,
+                user=user,
+                user_id=user_id,
+                chat_id=chat_id,
+                message_id=message_id,
             )
             return
         elif callback_action == CallbackData.CONSENT.value:

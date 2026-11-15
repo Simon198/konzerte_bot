@@ -44,6 +44,38 @@ def test_event_markup_shows_retract_button_when_interested():
     assert button.callback_data == f"not_interested;{event.id}"
 
 
+def test_event_markup_shows_broadcast_button_left_of_retract_for_admin():
+    event = _event()
+    markup = send_events._event_markup(event, is_interested=True, is_admin=True)
+
+    assert len(markup.keyboard) == 1
+    row = markup.keyboard[0]
+    assert len(row) == 2
+    assert row[0].text == "📣 Broadcast"
+    assert row[0].callback_data == f"broadcast;{event.id}"
+    assert row[1].text == "❌ Interesse zurücknehmen"
+    assert row[1].callback_data == f"not_interested;{event.id}"
+
+
+def test_event_markup_omits_broadcast_button_for_non_admin():
+    event = _event()
+    markup = send_events._event_markup(event, is_interested=True)
+
+    assert len(markup.keyboard) == 1
+    row = markup.keyboard[0]
+    assert len(row) == 1
+    assert row[0].text == "❌ Interesse zurücknehmen"
+
+
+def test_event_markup_omits_broadcast_button_when_not_interested():
+    event = _event()
+    markup = send_events._event_markup(event, is_admin=True)
+
+    assert len(markup.keyboard) == 1
+    row = markup.keyboard[0]
+    assert [button.text for button in row] == ["✅ Interesse", "❌ Kein Interesse"]
+
+
 def test_event_markup_shows_only_interest_button_when_not_interested():
     event = _event()
     markup = send_events._event_markup(event, is_interested=False)

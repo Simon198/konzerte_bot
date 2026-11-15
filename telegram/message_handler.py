@@ -155,6 +155,10 @@ def next_interested_events(message: Message):  # pragma: no cover - DB + Telegra
         .limit(limit)
     )
     events = session.scalars(stmt).all()
+
+    user = session.get(User, user_id)
+    is_admin = bool(user and user.is_admin)
+
     if len(events) == 0:
         telegram_bot.send_message(
             chat_id=chat_id,
@@ -165,7 +169,9 @@ def next_interested_events(message: Message):  # pragma: no cover - DB + Telegra
             telegram_bot.send_message(
                 chat_id=chat_id,
                 text=event.get_message_text(),
-                reply_markup=_event_markup(event, is_interested=True),
+                reply_markup=_event_markup(
+                    event, is_interested=True, is_admin=is_admin
+                ),
             )
 
 

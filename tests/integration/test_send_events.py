@@ -8,7 +8,13 @@ import pytest
 from models.band import Band
 from models.event import Event, Source
 from models.genre import Genre
-from models.user import Observed, SourceUnsubscription, GenreUnsubscription, User
+from models.user import (
+    GenreUnsubscription,
+    Interest,
+    Observed,
+    SourceUnsubscription,
+    User,
+)
 from telegram import send_events
 
 pytestmark = pytest.mark.integration
@@ -207,3 +213,56 @@ class TestSendEventsToUser:
 
         fake_bot.send_message.assert_called_once()
         assert "Band C" in fake_bot.send_message.call_args.kwargs["text"]
+
+
+class TestBroadcastEventToUsers:
+    def test_sends_only_to_eligible_users(self, wire, fake_bot):
+        wire(send_events)
+        metal = Genre(id=1, name="Metal")
+        event = Event(
+            dto_id="1", source=Source.BATSCHKAPP,
+            band=Band(name="Band A", genres=[metal]), city="F",
+            location="L", event_date=date(2026, 6, 1),
+        )
+        send_events.session.add(event)
+        send_events.session.flush()
+
+        interested = User(id=1, chat_id=100)
+        interested.interest.append(Interest(event=event))
+        observed = User(id=2, chat_id=200)
+        observed.observed.append(Observed(event=event, message_id=999))
+        source_unsubscribed = User(id=3, chat_id=300)
+        source_unsubscribed.source_unsubscriptions.append(
+            SourceUnsubscription(source=Source.BATSCHKAPP)
+        )
+        genre_unsubscribed = User(id=4, chat_id=400)
+        genre_unsubscribed.genre_unsubscriptions.append(
+            GenreUnsubscription(genre_id=metal.id)
+        )
+        eligible = User(id=5, chat_id=500)
+        send_events.session.add_all(
+            [interested, observed, source_unsubscribed, genre_unsubscribed, eligible]
+        )
+        send_events.session.commit()
+
+        send_events.broadcast_event_to_users(event)
+
+        fake_bot.send_message.assert_called_once()
+        assert fake_bot.send_message.call_args.kwargs["chat_id"] == eligible.chat_id
+        assert event.id in {o.event_id for o in eligible.observed}
+
+    def test_excludes_the_triggering_admin(self, wire, fake_bot):
+        wire(send_events)
+        event = Event(
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
+            location="L", event_date=date(2026, 6, 1),
+        )
+        admin = User(id=1, chat_id=100, is_admin=True)
+        eligible = User(id=2, chat_id=200)
+        send_events.session.add_all([event, admin, eligible])
+        send_events.session.commit()
+
+        send_events.broadcast_event_to_users(event, exclude_user_id=admin.id)
+
+        fake_bot.send_message.assert_called_once()
+        assert fake_bot.send_message.call_args.kwargs["chat_id"] == eligible.chat_id

@@ -46,6 +46,32 @@ class TestInterested:
         assert markup.keyboard[0][0].text == "❌ Interesse zurücknehmen"
         advance.assert_called_once()
 
+    def test_admin_interest_shows_broadcast_button(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        advance = MagicMock()
+        monkeypatch.setattr(callback_query_handler, "send_events_to_user", advance)
+        event = _event()
+        admin = User(
+            id=1, chat_id=100, username="alice", consent_given=True, is_admin=True
+        )
+        admin.observed.append(Observed(event=event, message_id=555))
+        callback_query_handler.session.add_all([event, admin])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.INTERESTED.value};{event.id}")
+        )
+
+        fake_bot.edit_message_reply_markup.assert_called_once()
+        markup = fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"]
+        row = markup.keyboard[0]
+        assert [button.text for button in row] == [
+            "📣 Broadcast",
+            "❌ Interesse zurücknehmen",
+        ]
+
     def test_interest_on_old_event_does_not_advance(
         self, wire, make_callback_query, fake_bot, monkeypatch
     ):
@@ -126,6 +152,51 @@ class TestNotInterested:
         markup = fake_bot.edit_message_reply_markup.call_args.kwargs["reply_markup"]
         assert markup.keyboard[0][0].text == "✅ Interesse"
         advance.assert_called_once()
+
+
+class TestBroadcast:
+    def test_admin_broadcasts_event(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        broadcast = MagicMock()
+        monkeypatch.setattr(
+            callback_query_handler, "broadcast_event_to_users", broadcast
+        )
+        event = _event()
+        admin = User(id=1, chat_id=100, username="alice", is_admin=True)
+        admin.interest.append(Interest(event=event))
+        callback_query_handler.session.add_all([event, admin])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.BROADCAST.value};{event.id}")
+        )
+
+        broadcast.assert_called_once_with(event, exclude_user_id=admin.id)
+        fake_bot.send_message.assert_called_once()
+        assert "gesendet" in fake_bot.send_message.call_args.kwargs["text"]
+
+    def test_non_admin_cannot_broadcast(
+        self, wire, make_callback_query, fake_bot, monkeypatch
+    ):
+        wire(callback_query_handler, prodcast_message, send_events)
+        broadcast = MagicMock()
+        monkeypatch.setattr(
+            callback_query_handler, "broadcast_event_to_users", broadcast
+        )
+        event = _event()
+        user = User(id=1, chat_id=100, username="alice")
+        callback_query_handler.session.add_all([event, user])
+        callback_query_handler.session.commit()
+
+        callback_query_handler.handle_callback_query(
+            make_callback_query(f"{CallbackData.BROADCAST.value};{event.id}")
+        )
+
+        broadcast.assert_not_called()
+        fake_bot.send_message.assert_called_once()
+        assert "keine Berechtigung" in fake_bot.send_message.call_args.kwargs["text"]
 
 
 class TestConsent:

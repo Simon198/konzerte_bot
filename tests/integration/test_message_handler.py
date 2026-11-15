@@ -83,6 +83,29 @@ class TestNextInterestedEvents:
         fake_bot.send_message.assert_called_once()
         assert "Band A" in fake_bot.send_message.call_args.kwargs["text"]
 
+    def test_admin_sees_broadcast_button(self, wire, make_message, fake_bot):
+        wire(message_handler)
+        event = Event(
+            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
+            location="L", event_date=date(2026, 6, 1),
+        )
+        admin = User(id=1, chat_id=100, is_admin=True)
+        admin.interest.append(Interest(event=event))
+        message_handler.session.add(admin)
+        message_handler.session.commit()
+
+        message_handler.next_interested_events(
+            make_message(user_id=1, chat_id=100, text="/next")
+        )
+
+        fake_bot.send_message.assert_called_once()
+        markup = fake_bot.send_message.call_args.kwargs["reply_markup"]
+        row = markup.keyboard[0]
+        assert [button.text for button in row] == [
+            "📣 Broadcast",
+            "❌ Interesse zurücknehmen",
+        ]
+
 
 class TestGo:
     def test_sends_next_event(self, wire, make_message, fake_bot):
