@@ -21,6 +21,8 @@ set -euo pipefail
 APP_DIR="/opt/konzerte_bot"
 VENV_DIR="$APP_DIR/.venv"
 SERVICE_NAME="konzerte_bot"
+SCRAPER_SERVICE_NAME="konzerte_bot_scraper"
+REMINDER_SERVICE_NAME="konzerte_bot_reminder"
 SERVICE_USER="konzertebot"
 DB_DIR="/var/lib/konzerte_bot"
 DB_FILE="$DB_DIR/concerts.db"
@@ -72,8 +74,10 @@ run_migrations() {
 }
 
 # ── Stop ───────────────────────────────────────────────────────────────────
-say "Stopping service $SERVICE_NAME"
+say "Stopping the bot and any running scheduled job"
 systemctl stop "$SERVICE_NAME.service"
+systemctl stop "$SCRAPER_SERVICE_NAME.service" || true
+systemctl stop "$REMINDER_SERVICE_NAME.service" || true
 
 # ── Pull ───────────────────────────────────────────────────────────────────
 say "Pulling latest code as '$GIT_USER'"
@@ -109,6 +113,10 @@ systemctl daemon-reload
 # ── Start ──────────────────────────────────────────────────────────────────
 say "Starting service $SERVICE_NAME"
 systemctl start "$SERVICE_NAME.service"
+
+# Refresh events with the newly deployed code without waiting for the 17:00 run.
+say "Triggering a fresh event scrape"
+systemctl start --no-block "$SCRAPER_SERVICE_NAME.service" || true
 
 say "Deployment complete"
 systemctl --no-pager --lines=0 status "$SERVICE_NAME.service" || true

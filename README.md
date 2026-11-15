@@ -45,7 +45,6 @@ repository, including the privacy policy — see [Privacy & legal](#privacy--leg
 - **Python 3** (3.10+)
 - [pyTelegramBotAPI](https://github.com/eternnoir/pyTelegramBotAPI) — Telegram Bot API
 - [SQLAlchemy](https://www.sqlalchemy.org/) 2.x + [Alembic](https://alembic.sqlalchemy.org/) — ORM and schema migrations
-- [schedule](https://github.com/dbader/schedule) — scheduling (daily reminders, daily scraping)
 - [requests](https://requests.readthedocs.io/) + [BeautifulSoup](https://www.crummy.com/software/BeautifulSoup/) — web scraping
 - [deezer-python](https://github.com/browniebroke/deezer-python) — band image / genre / top-track lookup
 - [Pillow](https://python-pillow.org/) — image resizing/conversion to WebP stickers
@@ -55,8 +54,9 @@ repository, including the privacy policy — see [Privacy & legal](#privacy--leg
 
 ```
 konzerte_bot/
-├── main.py                     # Entry point: sets up commands, starts scheduler + polling
-├── scheduler.py                # Background scheduler (reminders + daily scraping)
+├── main.py                     # Entry point: sets up commands + starts long-polling
+├── scrape_events.py            # Job entry point: daily event scraping (systemd timer)
+├── send_reminders.py           # Job entry point: daily reminder (systemd timer)
 ├── repository.py               # Database engine/session (SQLAlchemy)
 ├── telegram/                   # Telegram bot logic (commands, callbacks, polls, ...)
 ├── web_scraping/               # Scraping + persistence + Deezer enrichment
@@ -142,9 +142,15 @@ On startup the bot:
 
 1. Registers the command list with Telegram (`setup_bot_commands`),
 2. Broadcasts the newest changelog entry if there is one,
-3. Starts the scheduler in a background thread (and kicks off an immediate
-   scraping run so events are available right away),
-4. Begins long-polling for messages.
+3. Begins long-polling for messages.
+
+The two daily jobs (event scraping, reminders) are scheduled by systemd timers
+in production. To run them locally by hand:
+
+```bash
+python scrape_events.py     # daily event scraping job
+python send_reminders.py    # daily reminder job
+```
 
 ## Running the tests
 
@@ -181,7 +187,18 @@ sudo -E bash /opt/konzerte_bot/setup/setup.sh
 
 `setup.sh` creates the system user, virtual environment, runtime directories,
 writes the secured `.env` (prompting for the tokens), applies migrations and
-installs/enables/starts a hardened `konzerte_bot.service` systemd unit.
+installs/enables/starts a hardened `konzerte_bot.service` plus two systemd
+timers that run the daily jobs as one-shot services:
+
+- `konzerte_bot.service` — the Telegram bot (long-polling).
+- `konzerte_bot_scraper.timer` — daily event scraping at 17:00.
+- `konzerte_bot_reminder.timer` — daily event reminders at 09:00.
+
+The bot service is configured with `Restart=always`, so systemd restarts it
+automatically if it crashes. The timers are marked `Persistent=true`, so a run
+missed while the machine was off is executed on boot. In addition, a
+`konzerte_bot-night-sync.timer` stops the bot between 01:00 and 05:00 and
+starts it again outside that window (the daily jobs still run during the day).
 
 To supply the tokens non-interactively:
 
@@ -197,14 +214,17 @@ sudo bash /opt/konzerte_bot/setup/setup.sh --env-file /path/to/env
 sudo bash /opt/konzerte_bot/setup/deploy.sh
 ```
 
-This stops the service, pulls the latest code (including submodules), updates
-dependencies, applies migrations and restarts the service.
+This stops the bot, pulls the latest code (including submodules), updates
+dependencies, applies migrations, restarts the bot and triggers a fresh event
+scrape so the new code takes effect immediately.
 
 ### Useful commands
 
 ```bash
-sudo systemctl status konzerte_bot        # service status
-sudo journalctl -u konzerte_bot -f        # follow logs
+sudo systemctl status konzerte_bot            # bot service status
+sudo systemctl list-timers 'konzerte_bot*'    # show the scheduled jobs
+sudo bash setup/scheduler.sh                  # show timers / run the scraper
+sudo journalctl -u konzerte_bot -f            # follow bot logs
 tail -f /var/log/konzerte_bot/application.log
 ```
 

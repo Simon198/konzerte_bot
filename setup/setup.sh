@@ -37,6 +37,8 @@ set -euo pipefail
 APP_DIR="/opt/konzerte_bot"
 VENV_DIR="$APP_DIR/.venv"
 SERVICE_NAME="konzerte_bot"
+SCRAPER_SERVICE_NAME="konzerte_bot_scraper"
+REMINDER_SERVICE_NAME="konzerte_bot_reminder"
 SERVICE_USER="konzertebot"
 CONFIG_DIR="/etc/konzerte_bot"
 ENV_FILE="$CONFIG_DIR/.env"
@@ -44,6 +46,11 @@ CONFIG_FILE="$CONFIG_DIR/config.ini"
 DB_DIR="/var/lib/konzerte_bot"
 LOG_DIR="/var/log/konzerte_bot"
 UNIT_FILE="/etc/systemd/system/$SERVICE_NAME.service"
+SCRAPER_UNIT_FILE="/etc/systemd/system/$SCRAPER_SERVICE_NAME.service"
+REMINDER_UNIT_FILE="/etc/systemd/system/$REMINDER_SERVICE_NAME.service"
+NIGHT_SYNC_SCRIPT="/usr/local/bin/konzerte_bot-night-sync"
+NIGHT_SYNC_SERVICE="konzerte_bot-night-sync.service"
+NIGHT_SYNC_TIMER="konzerte_bot-night-sync.timer"
 DB_FILE="$DB_DIR/concerts.db"
 DB_URL="sqlite:///$DB_FILE"
 IMAGES_DIR="$DB_DIR/images/bands"
@@ -225,13 +232,16 @@ else
     chmod 600 "$ENV_FILE"
 fi
 
-# ── systemd unit ──────────────────────────────────────────────────────────
+# ── systemd units ─────────────────────────────────────────────────────────
 say "Installing systemd service $SERVICE_NAME.service"
 cat > "$UNIT_FILE" <<EOF
 [Unit]
 Description=Konzerte Bot (Telegram)
 Wants=network-online.target
 After=network-online.target
+# Restart no matter how often the bot fails. systemd otherwise gives up after
+# its default start-rate limit (5 starts within 10 seconds).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -243,6 +253,7 @@ Environment=KONZERTE_BOT_DATABASE_URL=$DB_URL
 Environment=KONZERTE_BOT_IMAGES_DIR=$IMAGES_DIR
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=$VENV_DIR/bin/python main.py
+# Restart automatically whenever the bot exits or crashes.
 Restart=always
 RestartSec=5
 TimeoutStopSec=20
@@ -264,19 +275,193 @@ WantedBy=multi-user.target
 EOF
 chmod 0644 "$UNIT_FILE"
 
+# The two scheduled jobs (daily event scraping, daily reminders) run as their
+# own one-shot services triggered by systemd timers, instead of an in-process
+# Python cron loop. A crash in one job therefore cannot take down the bot or the
+# other job, and every run is tracked individually by systemd.
+#
+# NOTE: systemd timers fire in the system's local timezone. For the 17:00
+# scraping and 09:00 reminder times to be Europe/Berlin, ensure the host is set
+# to that timezone (e.g. `timedatectl set-timezone Europe/Berlin`).
+say "Installing systemd service $SCRAPER_SERVICE_NAME.service + timer"
+cat > "$SCRAPER_UNIT_FILE" <<EOF
+[Unit]
+Description=Konzerte Bot event scraper (daily web scraping)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+Environment=KONZERTE_BOT_DATABASE_URL=$DB_URL
+Environment=KONZERTE_BOT_IMAGES_DIR=$IMAGES_DIR
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=$VENV_DIR/bin/python scrape_events.py
+
+# Security hardening (same as the bot)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$DB_DIR $LOG_DIR
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+EOF
+chmod 0644 "$SCRAPER_UNIT_FILE"
+
+cat > "/etc/systemd/system/$SCRAPER_SERVICE_NAME.timer" <<EOF
+[Unit]
+Description=Run the Konzerte Bot event scraper daily at 17:00
+
+[Timer]
+OnCalendar=*-*-* 17:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+chmod 0644 "/etc/systemd/system/$SCRAPER_SERVICE_NAME.timer"
+
+say "Installing systemd service $REMINDER_SERVICE_NAME.service + timer"
+cat > "$REMINDER_UNIT_FILE" <<EOF
+[Unit]
+Description=Konzerte Bot daily reminder
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=$SERVICE_USER
+Group=$SERVICE_USER
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+Environment=KONZERTE_BOT_DATABASE_URL=$DB_URL
+Environment=KONZERTE_BOT_IMAGES_DIR=$IMAGES_DIR
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=$VENV_DIR/bin/python send_reminders.py
+
+# Security hardening (same as the bot)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$DB_DIR $LOG_DIR
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0077
+EOF
+chmod 0644 "$REMINDER_UNIT_FILE"
+
+cat > "/etc/systemd/system/$REMINDER_SERVICE_NAME.timer" <<EOF
+[Unit]
+Description=Run the Konzerte Bot daily reminder at 09:00
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+chmod 0644 "/etc/systemd/system/$REMINDER_SERVICE_NAME.timer"
+
+# ── Night window: stop the bot between 01:00 and 05:00 ─────────────────────
+# A timer fires at 01:00 and 05:00 (and on boot if a trigger was missed while
+# the machine was off) and runs a helper that starts/stops the bot based on the
+# current hour.
+say "Installing night-window helper and timer (bot off 01:00-05:00)"
+cat > "$NIGHT_SYNC_SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+#
+# konzerte_bot — night sync
+#
+# Stops the Konzerte Bot between 01:00 and 05:00 and starts it outside that
+# window. Triggered by konzerte_bot-night-sync.timer at 01:00 and 05:00 (and on
+# boot when a trigger was missed while the machine was off).
+
+set -euo pipefail
+
+SERVICE_NAME="konzerte_bot"
+hour="$(date +%H)"
+
+# Force base-10 so "08"/"09" are not parsed as invalid octal.
+if (( 10#$hour >= 1 && 10#$hour < 5 )); then
+    systemctl stop "$SERVICE_NAME.service" || true
+else
+    systemctl start "$SERVICE_NAME.service" || true
+fi
+EOF
+chmod 0755 "$NIGHT_SYNC_SCRIPT"
+
+cat > "/etc/systemd/system/$NIGHT_SYNC_SERVICE" <<EOF
+[Unit]
+Description=Stop/start the Konzerte Bot according to the night window (01:00-05:00)
+
+[Service]
+Type=oneshot
+ExecStart=$NIGHT_SYNC_SCRIPT
+EOF
+chmod 0644 "/etc/systemd/system/$NIGHT_SYNC_SERVICE"
+
+cat > "/etc/systemd/system/$NIGHT_SYNC_TIMER" <<EOF
+[Unit]
+Description=Trigger the Konzerte Bot night sync daily at 01:00 and 05:00
+
+[Timer]
+OnCalendar=*-*-* 01:00:00
+OnCalendar=*-*-* 05:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+chmod 0644 "/etc/systemd/system/$NIGHT_SYNC_TIMER"
+
+# ── Remove the obsolete scheduler service ──────────────────────────────────
+# Older versions ran the daily jobs in an in-process `scheduler.py` service.
+# That is now replaced by the systemd timers above, so remove the old unit.
+if [[ -f "/etc/systemd/system/konzerte_bot_scheduler.service" ]]; then
+    say "Removing obsolete konzerte_bot_scheduler.service (replaced by systemd timers)"
+    systemctl disable --now konzerte_bot_scheduler.service 2>/dev/null || true
+    rm -f /etc/systemd/system/konzerte_bot_scheduler.service
+fi
+
 # ── Enable & start ────────────────────────────────────────────────────────
-say "Reloading systemd, enabling and starting the service"
+say "Reloading systemd, enabling and starting the services"
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME.service"
+systemctl enable "$SCRAPER_SERVICE_NAME.timer"
+systemctl enable "$REMINDER_SERVICE_NAME.timer"
+systemctl enable "$NIGHT_SYNC_TIMER"
 systemctl restart "$SERVICE_NAME.service"
+systemctl start "$SCRAPER_SERVICE_NAME.timer"
+systemctl start "$REMINDER_SERVICE_NAME.timer"
+systemctl start "$NIGHT_SYNC_TIMER"
+
+# Apply the night window immediately (e.g. when setup runs between 01:00-05:00).
+"$NIGHT_SYNC_SCRIPT" || true
+
+# Populate events right away instead of waiting for the next 17:00 run.
+systemctl start --no-block "$SCRAPER_SERVICE_NAME.service" || true
 
 say "Setup complete"
 systemctl --no-pager --lines=0 status "$SERVICE_NAME.service" || true
+systemctl --no-pager list-timers --all 'konzerte_bot*' || true
 
 cat <<'MSG'
 
 Useful commands:
   sudo systemctl status konzerte_bot
+  sudo systemctl list-timers 'konzerte_bot*'     # show the scheduled jobs
+  sudo bash setup/scheduler.sh                   # show timers / run the scraper
   sudo journalctl -u konzerte_bot -f
   tail -f /var/log/konzerte_bot/application.log
 MSG

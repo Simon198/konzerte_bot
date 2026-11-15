@@ -8,7 +8,8 @@ omit =
     conftest.py
     main.py
     logger.py
-    scheduler.py
+    scrape_events.py
+    send_reminders.py
     turn_admin.py
     progressbar.py
 
