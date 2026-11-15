@@ -16,6 +16,10 @@ class Band(Base):
     name: Mapped[str] = mapped_column(String(), unique=True, nullable=False)
     audio_sample: Mapped[str | None] = mapped_column(String(), nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(), nullable=True)
+    # Telegram ``file_id`` of the band's sticker. Once uploaded, the id can be
+    # sent to any chat without re-uploading the file. ``None`` until the sticker
+    # has been uploaded once.
+    sticker_file_id: Mapped[str | None] = mapped_column(String(), nullable=True)
 
     events: Mapped[list["Event"]] = relationship(back_populates="band")
     genres: Mapped[list["Genre"]] = relationship(

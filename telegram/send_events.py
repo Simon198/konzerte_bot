@@ -5,6 +5,7 @@ import threading
 from sqlalchemy import and_, not_, select
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 
+from models.band import Band
 from models.event import Event
 from models.genre import band_genres
 from models.user import Observed, User
@@ -85,16 +86,92 @@ def _band_image_path(event: Event) -> str | None:
     return None
 
 
-def _send_band_sticker(event: Event, chat_id: int):  # pragma: no cover - Telegram I/O
-    """Send the band's image as a small sticker."""
-    image_path = _band_image_path(event)
-    if image_path is None:
-        return
+def _upload_sticker_to_admin(image_path: str, admin_chat_id: int) -> str | None:  # pragma: no cover - Telegram I/O
+    """Upload the sticker at ``image_path`` to the admin chat and return its file_id.
+
+    Telegram ``file_id``s are bot-scoped but chat-agnostic, so the file only has
+    to be uploaded once and the id can then be reused for every user. The upload
+    is sent with notifications disabled and deleted immediately so the admin is
+    not spammed. Returns ``None`` if the upload fails.
+    """
+    message = None
     try:
         with open(image_path, "rb") as sticker:
-            telegram_bot.send_sticker(chat_id=chat_id, sticker=sticker)
+            message = telegram_bot.send_sticker(
+                chat_id=admin_chat_id,
+                sticker=sticker,
+                disable_notification=True,
+            )
+        return message.sticker.file_id
+    except Exception:
+        logger.exception("Could not upload sticker %r to the admin", image_path)
+        return None
+    finally:
+        if message is not None:
+            try:
+                telegram_bot.delete_message(
+                    chat_id=admin_chat_id, message_id=message.id
+                )
+            except Exception:
+                logger.exception(
+                    "Could not delete sticker upload message for %r", image_path
+                )
+
+
+def cache_sticker_file_id(band: Band, admin_chat_id: int) -> str | None:  # pragma: no cover - DB + Telegram I/O
+    """Return ``band``'s sticker ``file_id``, uploading and caching it on first use.
+
+    Used by the daily load to pre-warm file_ids: the sticker is uploaded once to
+    ``admin_chat_id`` (silently) so later event sends can reuse the id. Returns
+    ``None`` if the band has no image on disk or the upload fails.
+    """
+    if band.sticker_file_id:
+        return band.sticker_file_id
+    image_path = band.image_path
+    if not image_path or not os.path.isfile(image_path):
+        return None
+    file_id = _upload_sticker_to_admin(image_path, admin_chat_id)
+    if file_id is not None:
+        band.sticker_file_id = file_id
+        session.commit()
+    return file_id
+
+
+def _send_band_sticker(event: Event, chat_id: int):  # pragma: no cover - Telegram I/O
+    """Send the band's image as a small sticker.
+
+    The sticker is sent by ``file_id`` (a lightweight API call) whenever a cached
+    id is available. Otherwise the file is uploaded directly to the user and the
+    returned id is cached, so every later user is served from the cache. A cached
+    id that Telegram rejects is cleared and the file re-uploaded to the user.
+    """
+    band = event.band
+    image_path = _band_image_path(event)
+    if band is None or image_path is None:
+        return
+
+    if band.sticker_file_id is not None:
+        try:
+            telegram_bot.send_sticker(chat_id=chat_id, sticker=band.sticker_file_id)
+            return
+        except Exception:
+            logger.exception(
+                "Cached sticker file_id was rejected for %r; re-uploading",
+                event.band_name,
+            )
+            band.sticker_file_id = None
+
+    # No valid cached id: upload the file directly to this user and cache the
+    # returned id so subsequent users are served from the cache.
+    try:
+        with open(image_path, "rb") as sticker:
+            message = telegram_bot.send_sticker(chat_id=chat_id, sticker=sticker)
+        band.sticker_file_id = message.sticker.file_id
+        session.commit()
     except Exception:
         logger.exception("Could not send band sticker for %r", event.band_name)
+        session.rollback()
+        band.sticker_file_id = None
 
 
 def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + Telegram I/O

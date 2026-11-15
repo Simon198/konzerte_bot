@@ -9,12 +9,13 @@ from pathlib import Path
 from sqlalchemy import func, or_, select
 
 from models.band import Band
-from models.event import Event, Source
+from models.event import Event
 from models.genre import Genre
 from models.user import User
 from progressbar import tqdm_admin_telegram
 from repository import session
 from telegram import telegram_bot
+from telegram.send_events import cache_sticker_file_id
 
 from .deezer import download_band_image, find_band_information
 from .dto import EventDTO
@@ -264,61 +265,95 @@ def _fill_missing_band_information():  # pragma: no cover - DB + network I/O
         time.sleep(1)
 
 
-def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegram I/O
-    try:
-        logger.info("Start webscraping events")
-        new_events: dict[Source, int] = {}
-        for event_dtos in _load_all_events():
-            for event_dto in event_dtos:
-                if event_dto.date is None:
-                    continue
+def _admin_user() -> User | None:  # pragma: no cover - DB storage
+    """Return the longest-active admin, used as the silent sticker upload target.
 
-                event = _insert_or_update_event(event_dto)
-                if event.id is None:
-                    if event.source not in new_events:
-                        new_events[event.source] = 0
-                    new_events[event.source] += 1
-        session.flush()
+    Admins are ordered by ``id`` (which auto-increments), so the earliest-created
+    admin is chosen when there are several, keeping the upload target stable.
+    Callers load this once (e.g. per pre-warm run) and pass it along.
+    """
+    return session.scalar(
+        select(User).where(User.is_admin.is_(True)).order_by(User.id).limit(1)
+    )
+
+
+def _fill_missing_sticker_file_ids():  # pragma: no cover - DB + Telegram I/O
+    """Pre-warm the sticker ``file_id`` for every band that has an image.
+
+    Uploading each sticker once to the admin (silently) lets later event sends
+    reuse the ``file_id`` instead of re-uploading the file per user. The admin is
+    looked up once, not once per band.
+    """
+    admin = _admin_user()
+    if admin is None:
+        logger.warning("No admin user found; cannot pre-warm sticker file_ids")
+        return
+    bands = session.scalars(
+        select(Band).where(
+            Band.image_path.isnot(None),
+            Band.sticker_file_id.is_(None),
+        )
+    ).all()
+    for band in tqdm_admin_telegram(bands):
+        cache_sticker_file_id(band, admin.chat_id)
+        # Be gentle to Telegram so a large first backfill is not rate-limited.
+        time.sleep(1)
+
+
+def _load_and_persist_new_events(): # pragma: no cover - orchestration + DB
+    logger.info("Start webscraping events")
+    new_events: list[Event] = []
+    for event_dtos in _load_all_events():
+        for event_dto in event_dtos:
+            if event_dto.date is None:
+                continue
+
+            event = _insert_or_update_event(event_dto)
+            if event.id is None:
+                new_events.append(event)
+    session.flush()
         # Delete past events via the ORM so the cascade configured on
         # Event.interest / Event.observed removes the dependent rows automatically.
-        past_events = session.scalars(
+    past_events = session.scalars(
             select(Event).where(or_(Event.event_date.is_(None), Event.event_date < func.current_date()))
         ).all()
-        for event in past_events:
-            session.delete(event)
-        session.commit()
-        logger.info("Events have been successfully stored")
+    for event in past_events:
+        session.delete(event)
+    session.commit()
+    logger.info("Events have been successfully stored")
+    return new_events
 
+
+def _inform_users_of_new_events(new_events): # pragma: no cover - orchestration + DB + Telegram I/O
+    users = session.scalars(select(User))
+    for user in users:
+        unsubscribed_sources = {us.source for us in user.source_unsubscriptions}
+        disliked_genre_ids = {us.genre_id for us in user.genre_unsubscriptions}
+
+        new_events_for_user = 0
+        for event in new_events:
+            if event.source in unsubscribed_sources:
+                continue
+            if disliked_genre_ids and any(
+                genre.id in disliked_genre_ids for genre in event.band.genres
+            ):
+                continue
+            new_events_for_user += 1
+
+        if new_events_for_user == 0:
+            continue
+        telegram_bot.send_message(
+            user.chat_id,
+            f"Es gibt {new_events_for_user} neue Events",
+        )
+
+
+def load_and_persist_events():  # pragma: no cover - orchestration + DB + Telegram I/O
+    try:
+        new_events = _load_and_persist_new_events()
         _delete_orphaned_bands()
         _fill_missing_band_information()
-
-        users = session.scalars(select(User))
-        for user in users:
-            new_events_for_user = 0
-            for source, count in new_events.items():
-                if source not in (us.source for us in user.source_unsubscriptions):
-                    new_events_for_user += count
-            if new_events_for_user == 0:
-                continue
-            telegram_bot.send_message(
-                user.chat_id,
-                f"Es gibt {new_events_for_user} neue Events",
-            )
+        _fill_missing_sticker_file_ids()
+        _inform_users_of_new_events(new_events)
     except:
         logger.exception("An error occurred while loading the events")
-
-
-def load_and_persist_events_async():  # pragma: no cover - threading
-    """Start ``load_and_persist_events`` in a background daemon thread.
-
-    Returns the thread so callers can join it if needed. Running the scraper
-    off the main polling thread keeps the bot reachable while events are
-    being loaded.
-    """
-    thread = threading.Thread(target=load_and_persist_events, daemon=True)
-    thread.start()
-    return thread
-
-
-if __name__ == "__main__":  # pragma: no cover
-    load_and_persist_events()
