@@ -140,3 +140,11 @@ def test_band_image_path_returns_none_when_missing(tmp_path):
 
 def test_band_image_path_returns_none_without_image_path():
     assert send_events._band_image_path(_event(band=Band(name="A"))) is None
+
+
+class TestLockForUser:
+    def test_returns_same_lock_for_same_user(self):
+        assert send_events._lock_for_user(111111) is send_events._lock_for_user(111111)
+
+    def test_returns_distinct_locks_for_different_users(self):
+        assert send_events._lock_for_user(222222) is not send_events._lock_for_user(333333)

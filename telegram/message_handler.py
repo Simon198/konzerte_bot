@@ -10,7 +10,7 @@ from models.event import Event, Source
 from models.genre import Genre
 from models.poll import Poll, PollOption
 from models.user import Interest, User
-from repository import session
+from repository import session, with_db_session
 from send_changelog import read_changelog
 from utils import format_user_name
 
@@ -57,6 +57,7 @@ def _build_pairings_lines(rows, current_user_id: int) -> str | None:
 
 
 @telegram_bot.message_handler(commands=[Commands.start.name])
+@with_db_session
 def start(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -84,6 +85,7 @@ def start(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.sources.name])
+@with_db_session
 def sources(message: Message):  # pragma: no cover - DB + Telegram I/O
     chat_id = message.chat.id
 
@@ -111,6 +113,7 @@ def sources(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.genres.name])
+@with_db_session
 def genres(message: Message):  # pragma: no cover - DB + Telegram I/O
     chat_id = message.chat.id
     user = session.get(User, message.from_user.id)
@@ -136,6 +139,7 @@ def genres(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.next.name])
+@with_db_session
 def next_interested_events(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -166,6 +170,7 @@ def next_interested_events(message: Message):  # pragma: no cover - DB + Telegra
 
 
 @telegram_bot.message_handler(commands=[Commands.go.name])
+@with_db_session
 def go(message: Message):  # pragma: no cover - DB + Telegram I/O
     limit = _parse_limit(message.text, Commands.go.name, 1)
 
@@ -179,6 +184,7 @@ def go(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.changelog.name])
+@with_db_session
 def changelog(message: Message):  # pragma: no cover - DB + Telegram I/O
     changelog = session.scalar(
         select(Changelog).order_by(desc(Changelog.sent_date)).limit(1)
@@ -193,6 +199,7 @@ def changelog(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.datenschutz.name])
+@with_db_session
 def datenschutz(message: Message):  # pragma: no cover - Telegram I/O
     telegram_bot.reply_to(
         message=message,
@@ -202,6 +209,7 @@ def datenschutz(message: Message):  # pragma: no cover - Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.mydata.name])
+@with_db_session
 def mydata(message: Message):  # pragma: no cover - DB + Telegram I/O
     user = session.get(User, message.from_user.id)
     if user is None:
@@ -214,6 +222,7 @@ def mydata(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.pairings.name])
+@with_db_session
 def pairings(message: Message):  # pragma: no cover - DB + Telegram I/O
     user = session.get(User, message.from_user.id)
     if user is None or not user.is_admin:
@@ -249,6 +258,7 @@ def pairings(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler(commands=[Commands.delete.name])
+@with_db_session
 def delete_user(message: Message):  # pragma: no cover - DB + Telegram I/O
     user_id = message.from_user.id
     user = session.get(User, user_id)
@@ -272,6 +282,7 @@ def delete_user(message: Message):  # pragma: no cover - DB + Telegram I/O
 
 
 @telegram_bot.message_handler()
+@with_db_session
 def false_message(message: Message):  # pragma: no cover - Telegram I/O
     message_text = getattr(message, "text", "")
     if message_text.startswith("/"):

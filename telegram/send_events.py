@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 
 from sqlalchemy import and_, not_, select
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
@@ -12,6 +13,22 @@ from repository import session
 from . import telegram_bot
 
 logger = logging.getLogger(__name__)
+
+# Sending an event takes time (sticker upload + message). While a send is still
+# in flight, the event is not yet recorded as ``Observed``, so a second ``/go``
+# (or a callback that advances the queue) would query and send the *same* event
+# again. Serialising sends per user prevents that duplicate.
+_user_send_locks: dict[int, threading.Lock] = {}
+_user_send_locks_guard = threading.Lock()
+
+
+def _lock_for_user(user_id: int) -> threading.Lock:
+    with _user_send_locks_guard:
+        lock = _user_send_locks.get(user_id)
+        if lock is None:
+            lock = threading.Lock()
+            _user_send_locks[user_id] = lock
+        return lock
 
 
 def _event_markup(
@@ -119,15 +136,23 @@ def send_events_to_user(user: User, limit: int = 1):  # pragma: no cover - DB + 
         .limit(limit)
     )
 
-    events = session.scalars(stmt).all()
-    for event in events:
-        markup = _event_markup(event)
+    # Serialise sends for this user. Concurrent ``/go`` commands (or a callback
+    # advancing the queue) otherwise both see the event as unobserved and send
+    # it twice, and the second ``Observed`` insert then violates the composite
+    # primary key on ``(user_id, event_id)``.
+    with _lock_for_user(user.id):
+        events = session.scalars(stmt).all()
+        for event in events:
+            markup = _event_markup(event)
 
-        _send_band_sticker(event, user.chat_id)
-        message = telegram_bot.send_message(
-            chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
-        )
+            _send_band_sticker(event, user.chat_id)
+            message = telegram_bot.send_message(
+                chat_id=user.chat_id, text=event.get_message_text(), reply_markup=markup
+            )
 
-        observed_event = Observed(event_id=event.id, message_id=message.id)
-        user.observed.append(observed_event)
-        session.commit()
+            # ``Observed`` has a composite primary key; skip the insert if the
+            # event was already recorded (defensive, in case the event slipped
+            # through the "unobserved" filter above).
+            if session.get(Observed, (user.id, event.id)) is None:
+                user.observed.append(Observed(event_id=event.id, message_id=message.id))
+                session.commit()

@@ -9,7 +9,7 @@ from telebot.types import CallbackQuery
 from models.event import Event
 from models.genre import Genre
 from models.user import GenreUnsubscription, Interest, Observed, User
-from repository import session
+from repository import session, with_db_session
 from utils import TIMEZONE, format_user_name
 
 from . import telegram_bot
@@ -30,6 +30,21 @@ def _parse_callback_data(data: str) -> tuple[str, str] | None:
     return parts[0], parts[1]
 
 
+def _parse_event_id(value: str) -> uuid.UUID | None:
+    """Parse a callback's event id, tolerating stale/tampered data (pure)."""
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _clear_callback_markup(chat_id: int, message_id: int) -> None:  # pragma: no cover - Telegram I/O
+    """Remove the keyboard of the clicked message so it can't be clicked again."""
+    telegram_bot.edit_message_reply_markup(
+        chat_id=chat_id, message_id=message_id, reply_markup=None
+    )
+
+
 def _toggle_genre_unsubscription(user: User, genre_id: int) -> None:
     """Add or remove ``genre_id`` from the user's disliked genres (pure)."""
     for unsubscription in user.genre_unsubscriptions:
@@ -47,7 +62,66 @@ def _is_latest_active_event(user_id: int, message_id: int) -> bool:  # pragma: n
     return message_id == latest_message_id
 
 
+def _apply_interest(user: User, event: Event, is_interested: bool) -> None:
+    """Add or remove ``event`` from the user's interests (pure)."""
+    if is_interested:
+        user.interest.append(Interest(event=event))
+        return
+    # ``user.interest`` holds ``Interest`` objects, not ``Event`` objects, so
+    # remove the matching ``Interest`` explicitly.
+    for interest in user.interest:
+        if interest.event_id == event.id:
+            user.interest.remove(interest)
+            break
+
+
+def _handle_interest_callback(
+    callback_value: str,
+    user: User | None,
+    user_id: int,
+    chat_id: int,
+    message_id: int,
+    display_name: str,
+    is_interested: bool,
+) -> None:  # pragma: no cover - DB + Telegram I/O
+    """Handle an "Interesse" or "Kein Interesse" callback."""
+    action = "Interest" if is_interested else "Not-interested"
+
+    if user is None:
+        logger.warning(f"{action} callback from unknown user {user_id}")
+        telegram_bot.send_message(
+            chat_id=chat_id, text="Bitte starte mich zuerst mit /start."
+        )
+        _clear_callback_markup(chat_id, message_id)
+        return
+
+    event_id = _parse_event_id(callback_value)
+    event = session.get(Event, event_id) if event_id is not None else None
+    if event is None:
+        logger.warning(f"{action} callback references missing event {callback_value}")
+        _clear_callback_markup(chat_id, message_id)
+        return
+
+    _apply_interest(user, event, is_interested)
+    session.commit()
+
+    if is_interested:
+        prodcast_message_to_admins(
+            f"{display_name} ist interessiert an:\n{event.get_short_message_text()}",
+            user_id,
+        )
+
+    telegram_bot.edit_message_reply_markup(
+        chat_id=chat_id,
+        message_id=message_id,
+        reply_markup=_event_markup(event, is_interested=is_interested),
+    )
+    if _is_latest_active_event(user_id, message_id):
+        send_events_to_user(user, limit=1)
+
+
 @telegram_bot.callback_query_handler()
+@with_db_session
 def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - DB + Telegram I/O
     message = callback_query.message
     message_id = message.id
@@ -71,42 +145,26 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
     else:
         callback_action, callback_value = parsed
         if callback_action == CallbackData.INTERESTED.value:
-            event = session.get(Event, uuid.UUID(callback_value))
-            user.interest.append(Interest(event=event))
-            session.commit()
-
-            prodcast_message_to_admins(
-                f"{display_name} ist interessiert an:\n{event.get_short_message_text()}",
-                user_id,
-            )
-            telegram_bot.edit_message_reply_markup(
+            _handle_interest_callback(
+                callback_value=callback_value,
+                user=user,
+                user_id=user_id,
                 chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=_event_markup(event, is_interested=True),
+                display_name=display_name,
+                is_interested=True,
             )
-            if _is_latest_active_event(user_id, message_id):
-                send_events_to_user(user, limit=1)
             return
         elif callback_action == CallbackData.NOT_INTERESTED.value:
-            event = session.get(Event, uuid.UUID(callback_value))
-            # ``user.interest`` holds ``Interest`` objects, not ``Event``
-            # objects, so remove the matching ``Interest`` explicitly.
-            for interest in user.interest:
-                if interest.event_id == event.id:
-                    user.interest.remove(interest)
-                    break
-            session.commit()
-
-            # Both "Kein Interesse" (skip) and "zurücknehmen" (retract) land in
-            # the "not interested" state, showing only "Interesse" so the
-            # decision can still be reversed.
-            telegram_bot.edit_message_reply_markup(
+            _handle_interest_callback(
+                callback_value=callback_value,
+                user=user,
+                user_id=user_id,
                 chat_id=chat_id,
                 message_id=message_id,
-                reply_markup=_event_markup(event, is_interested=False),
+                display_name=display_name,
+                is_interested=False,
             )
-            if _is_latest_active_event(user_id, message_id):
-                send_events_to_user(user, limit=1)
             return
         elif callback_action == CallbackData.CONSENT.value:
             if callback_value == ACCEPT:
@@ -155,16 +213,12 @@ def handle_callback_query(callback_query: CallbackQuery):  # pragma: no cover - 
             return
         elif callback_action == CallbackData.GENRE_DONE.value:
             session.commit()
-            telegram_bot.edit_message_reply_markup(
-                chat_id=chat_id, message_id=message_id, reply_markup=None
-            )
+            _clear_callback_markup(chat_id, message_id)
             return
         else:
             logger.warning(
                 f"An unknown query callback action has been sent by the user: {callback_action}"
             )
 
-    telegram_bot.edit_message_reply_markup(
-        chat_id=chat_id, message_id=message_id, reply_markup=None
-    )
+    _clear_callback_markup(chat_id, message_id)
     session.commit()

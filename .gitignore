@@ -207,9 +207,8 @@ marimo/_lsp/
 __marimo__/
 
 # Local DB
-concerts.db
+concerts.db*
 logs
-concerts.db-journal
 
 # Downloaded band images
 images/

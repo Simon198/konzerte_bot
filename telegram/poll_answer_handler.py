@@ -5,7 +5,7 @@ from . import telegram_bot
 from models.event import Source
 from models.poll import Poll
 from models.user import SourceUnsubscription
-from repository import session
+from repository import session, with_db_session
 
 
 def _sources_to_unsubscribe(poll_options, selected_option_ids) -> set[Source]:
@@ -19,6 +19,7 @@ def _sources_to_unsubscribe(poll_options, selected_option_ids) -> set[Source]:
 
 
 @telegram_bot.poll_answer_handler()
+@with_db_session
 def handle_source_poll_answer(poll_answer: PollAnswer):  # pragma: no cover - DB storage
     user_id = poll_answer.user.id
 
