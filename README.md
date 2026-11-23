@@ -193,6 +193,7 @@ timers that run the daily jobs as one-shot services:
 - `konzerte_bot.service` — the Telegram bot (long-polling).
 - `konzerte_bot_scraper.timer` — daily event scraping at 17:00.
 - `konzerte_bot_reminder.timer` — daily event reminders at 09:00.
+- `konzerte_bot-upgrade.timer` — daily dependency upgrade at 03:00 (see below).
 
 The bot service is configured with `Restart=always`, so systemd restarts it
 automatically if it crashes. The timers are marked `Persistent=true`, so a run
@@ -217,6 +218,44 @@ sudo bash /opt/konzerte_bot/setup/deploy.sh
 This stops the bot, pulls the latest code (including submodules), updates
 dependencies, applies migrations, restarts the bot and triggers a fresh event
 scrape so the new code takes effect immediately.
+
+### Automatic dependency upgrades (vulnerability fixes)
+
+A nightly job keeps the Python dependencies patched against known CVEs. It runs
+inside the bot's downtime window and only switches to the new versions if the
+test suite passes. The job is a systemd service (`konzerte_bot-upgrade.service`)
+plus timer, both defined and enabled by `setup.sh`; the logic lives in
+`upgrade_dependencies.py` (like the other entry points). To run it manually:
+
+```bash
+sudo systemctl start konzerte_bot-upgrade.service     # run the upgrade now
+```
+
+What it does, every night at 03:00 (between the 01:00 stop and the 05:00 start):
+
+1. Pulls the newest version of `main` (an error is sent to the admin bot if the
+   pull fails).
+2. Snapshots the current package versions as a rollback point.
+3. Audits the virtualenv with [`pip-audit`](https://github.com/pypa/pip-audit)
+   and upgrades **only** the packages with known vulnerabilities.
+4. Records the fixed versions in `requirements.txt` (raising the `>=` floors of
+   the direct dependencies and pinning any fixed transitive dependencies).
+5. Runs the full test suite (`pytest`).
+6. **Keeps the new versions only if every test passes**; otherwise it rolls the
+   environment and `requirements.txt` back to the last known-good state.
+7. On success it commits and pushes the `requirements.txt` update.
+8. Leaves the bot stopped — the `konzerte_bot-night-sync.timer` starts it again
+   at 05:00 with whichever version survived step 6.
+
+The full log of every run is available via `journalctl -u konzerte_bot-upgrade`,
+and errors/upgrade results are sent to the admin bot and written to
+`/var/log/konzerte_bot/application.log` through the same `logger.py` handler as
+the rest of the application.
+
+> **Note:** the scheduled `git pull`/`git push` run as the repository owner
+> (`GIT_USER`, defaulting to the user who ran `setup.sh`). For this to work
+> non-interactively from the timer, that user needs passwordless SSH access to
+> the repository (a default SSH key or an available `ssh-agent`).
 
 ### Useful commands
 

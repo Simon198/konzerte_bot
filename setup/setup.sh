@@ -39,6 +39,7 @@ VENV_DIR="$APP_DIR/.venv"
 SERVICE_NAME="konzerte_bot"
 SCRAPER_SERVICE_NAME="konzerte_bot_scraper"
 REMINDER_SERVICE_NAME="konzerte_bot_reminder"
+UPGRADE_SERVICE_NAME="konzerte_bot-upgrade"
 SERVICE_USER="konzertebot"
 CONFIG_DIR="/etc/konzerte_bot"
 ENV_FILE="$CONFIG_DIR/.env"
@@ -425,6 +426,43 @@ WantedBy=timers.target
 EOF
 chmod 0644 "/etc/systemd/system/$NIGHT_SYNC_TIMER"
 
+# ── Automatic dependency upgrade (nightly at 03:00) ────────────────────────
+# Runs inside the night window. It pulls the newest main, upgrades only the
+# packages with known vulnerabilities (pip-audit), records the fixes in
+# requirements.txt, runs the full test suite, and keeps the new versions only if
+# every test passes (otherwise it rolls back). On success it commits and pushes
+# the requirements.txt update. The bot is left stopped for the 05:00 night-sync.
+say "Installing automatic dependency-upgrade service + timer (daily at 03:00)"
+cat > "/etc/systemd/system/$UPGRADE_SERVICE_NAME.service" <<EOF
+[Unit]
+Description=Konzerte Bot automatic dependency upgrade (vulnerability fixes)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ENV_FILE
+Environment=KONZERTE_BOT_GIT_USER=$GIT_USER
+Environment=KONZERTE_BOT_DATABASE_URL=sqlite:///:memory:
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=$VENV_DIR/bin/python upgrade_dependencies.py
+EOF
+chmod 0644 "/etc/systemd/system/$UPGRADE_SERVICE_NAME.service"
+
+cat > "/etc/systemd/system/$UPGRADE_SERVICE_NAME.timer" <<EOF
+[Unit]
+Description=Run the Konzerte Bot dependency upgrade daily at 03:00
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+chmod 0644 "/etc/systemd/system/$UPGRADE_SERVICE_NAME.timer"
+
 # ── Remove the obsolete scheduler service ──────────────────────────────────
 # Older versions ran the daily jobs in an in-process `scheduler.py` service.
 # That is now replaced by the systemd timers above, so remove the old unit.
@@ -441,10 +479,12 @@ systemctl enable "$SERVICE_NAME.service"
 systemctl enable "$SCRAPER_SERVICE_NAME.timer"
 systemctl enable "$REMINDER_SERVICE_NAME.timer"
 systemctl enable "$NIGHT_SYNC_TIMER"
+systemctl enable "$UPGRADE_SERVICE_NAME.timer"
 systemctl restart "$SERVICE_NAME.service"
 systemctl start "$SCRAPER_SERVICE_NAME.timer"
 systemctl start "$REMINDER_SERVICE_NAME.timer"
 systemctl start "$NIGHT_SYNC_TIMER"
+systemctl start "$UPGRADE_SERVICE_NAME.timer"
 
 # Apply the night window immediately (e.g. when setup runs between 01:00-05:00).
 "$NIGHT_SYNC_SCRIPT" || true

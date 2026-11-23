@@ -12,6 +12,7 @@ omit =
     send_reminders.py
     turn_admin.py
     progressbar.py
+    upgrade_dependencies.py
 
 [report]
 fail_under = 100
