@@ -1,13 +1,13 @@
 # Runtime dependencies for the Konzerte Bot.
 # Install with: pip install -r requirements.txt
-python-dotenv>=1.0.0
+python-dotenv>=1.2.2
 pyTelegramBotAPI>=4.14.0
 SQLAlchemy>=2.0.0
 alembic>=1.13.0
 tqdm>=4.66.0
 
 # Scraper dependencies (web_scraping/scrapers submodule)
-requests>=2.31.0
+requests>=2.33.0
 beautifulsoup4>=4.12.0
 
 # Band enrichment lookups via Deezer (images, genres and top-track audio sample)
@@ -15,3 +15,10 @@ deezer-python>=7.0.0
 
 # Image resizing (band images are resized to a small thumbnail before sending)
 Pillow>=10.0.0
+anyio>=4.14.2
+certifi>=2026.10.18
+idna>=3.15
+pip>=26.2
+soupsieve>=4.0.0
+urllib3>=2.8.0
+uv>=0.13.4
