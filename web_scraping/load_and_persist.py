@@ -101,7 +101,9 @@ def _insert_event(event_dto: EventDTO, band: Band):  # pragma: no cover - DB sto
     return event
 
 
-def _update_observed_messages(event: Event, old_message_text: str):  # pragma: no cover - Telegram I/O
+def _update_observed_messages(
+    event: Event, old_message_text: str
+):  # pragma: no cover - Telegram I/O
     """
     If the message text is updated, update all message of events that have been observed by users
     """
@@ -146,7 +148,9 @@ def _format_change_message(event: Event, change_texts: list[str]) -> str:
     )
 
 
-def _send_message_to_interested_users(event, changes):  # pragma: no cover - Telegram I/O
+def _send_message_to_interested_users(
+    event, changes
+):  # pragma: no cover - Telegram I/O
     """
     Send a message to all interested users of the changed events
     """
@@ -187,7 +191,9 @@ def _diff_event(event_dto: EventDTO, event: Event) -> dict:
     return changes
 
 
-def _update_event(event_dto: EventDTO, event: Event, band: Band):  # pragma: no cover - DB + Telegram I/O
+def _update_event(
+    event_dto: EventDTO, event: Event, band: Band
+):  # pragma: no cover - DB + Telegram I/O
     """
     Update the DB event by the new dto object. If changes have occured, message the users
     """
@@ -300,7 +306,7 @@ def _fill_missing_sticker_file_ids():  # pragma: no cover - DB + Telegram I/O
         time.sleep(1)
 
 
-def _load_and_persist_new_events(): # pragma: no cover - orchestration + DB
+def _load_and_persist_new_events():  # pragma: no cover - orchestration + DB
     logger.info("Start webscraping events")
     new_events: list[Event] = []
     for event_dtos in _load_all_events():
@@ -312,11 +318,13 @@ def _load_and_persist_new_events(): # pragma: no cover - orchestration + DB
             if event.id is None:
                 new_events.append(event)
     session.flush()
-        # Delete past events via the ORM so the cascade configured on
-        # Event.interest / Event.observed removes the dependent rows automatically.
+    # Delete past events via the ORM so the cascade configured on
+    # Event.interest / Event.observed removes the dependent rows automatically.
     past_events = session.scalars(
-            select(Event).where(or_(Event.event_date.is_(None), Event.event_date < func.current_date()))
-        ).all()
+        select(Event).where(
+            or_(Event.event_date.is_(None), Event.event_date < func.current_date())
+        )
+    ).all()
     for event in past_events:
         session.delete(event)
     session.commit()
@@ -324,7 +332,9 @@ def _load_and_persist_new_events(): # pragma: no cover - orchestration + DB
     return new_events
 
 
-def _inform_users_of_new_events(new_events): # pragma: no cover - orchestration + DB + Telegram I/O
+def _inform_users_of_new_events(
+    new_events,
+):  # pragma: no cover - orchestration + DB + Telegram I/O
     users = session.scalars(select(User))
     for user in users:
         unsubscribed_sources = {us.source for us in user.source_unsubscriptions}
