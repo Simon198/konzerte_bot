@@ -32,7 +32,7 @@ class TelegramLogHandler(logging.Handler):
             admin_bot.send_message(
                 chat_id=ADMIN_CHAT_ID,
                 text=f"{LEVEL_EMOJI[log_record.levelno]} {self.format(log_record)}",
-                disable_notification=log_record.levelno < logging.WARNING,
+                disable_notification=False,
             )
         except:
             self.handleError(log_record)
