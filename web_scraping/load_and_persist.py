@@ -101,24 +101,6 @@ def _insert_event(event_dto: EventDTO, band: Band):  # pragma: no cover - DB sto
     return event
 
 
-def _update_observed_messages(
-    event: Event, old_message_text: str
-):  # pragma: no cover - Telegram I/O
-    """
-    If the message text is updated, update all message of events that have been observed by users
-    """
-    new_message_text = event.get_message_text()
-    if old_message_text == new_message_text:
-        return
-
-    for observed_event in event.observed:
-        chat_id = observed_event.user.chat_id
-        message_id = observed_event.message_id
-        telegram_bot.edit_message_text(
-            text=new_message_text, chat_id=chat_id, message_id=message_id
-        )
-
-
 TRANSLATIONS = {
     "band": "Band",
     "city": "Stadt",
@@ -197,8 +179,6 @@ def _update_event(
     """
     Update the DB event by the new dto object. If changes have occured, message the users
     """
-    old_message_text = event.get_message_text()
-
     changes = _diff_event(event_dto, event)
 
     if len(changes) == 0:
@@ -210,8 +190,17 @@ def _update_event(
         else:
             setattr(event, attr, new_value)
     event.update_time = datetime.now()
-    _update_observed_messages(event, old_message_text)
-    _send_message_to_interested_users(event, changes)
+
+    # Notifying users is best-effort: a Telegram failure (e.g. rate limiting)
+    # must not prevent the updated event from being persisted.
+    try:
+        _send_message_to_interested_users(event, changes)
+    except Exception:
+        logger.exception(
+            "Could not notify interested users about changes to event %r",
+            event.dto_id,
+        )
+
     return event
 
 

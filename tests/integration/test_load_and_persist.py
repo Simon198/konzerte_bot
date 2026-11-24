@@ -9,8 +9,13 @@ from sqlalchemy import func, select
 from models.band import Band
 from models.event import Event, Source
 from models.genre import Genre
-from models.user import (GenreUnsubscription, Interest, Observed,
-                         SourceUnsubscription, User)
+from models.user import (
+    GenreUnsubscription,
+    Interest,
+    Observed,
+    SourceUnsubscription,
+    User,
+)
 from telegram import send_events
 from web_scraping import load_and_persist
 from web_scraping.deezer import BandInfo
@@ -38,7 +43,9 @@ class TestInsertEvent:
     def test_inserts_event_from_dto(self, wire):
         wire(load_and_persist)
         event_dto = _dto()
-        event = load_and_persist._insert_event(event_dto, load_and_persist._get_or_create_band(event_dto.band))
+        event = load_and_persist._insert_event(
+            event_dto, load_and_persist._get_or_create_band(event_dto.band)
+        )
         load_and_persist.session.flush()
         assert event.id is not None
         assert event.band_name == "Band A"
@@ -66,8 +73,12 @@ class TestUpdateEvent:
         wire(load_and_persist)
 
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band=Band(name="Band A"), city="F",
-            location="L", event_date=date(2026, 5, 10),
+            dto_id="1",
+            source=Source.BATSCHKAPP,
+            band=Band(name="Band A"),
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
         interested = User(id=1, chat_id=100, username="alice")
         observer = User(id=2, chat_id=200, username="bob")
@@ -84,8 +95,33 @@ class TestUpdateEvent:
         # the interested user is notified of the change
         fake_bot.send_message.assert_called_once()
         assert fake_bot.send_message.call_args.kwargs["chat_id"] == 100
-        # the observed user's message is edited
-        fake_bot.edit_message_text.assert_called_once()
+
+    def test_change_persisted_when_notification_fails(self, wire, fake_bot):
+        wire(load_and_persist)
+
+        event = Event(
+            dto_id="1",
+            source=Source.BATSCHKAPP,
+            band=Band(name="Band A"),
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
+        )
+        interested = User(id=1, chat_id=100, username="alice")
+        interested.interest.append(Interest(event=event))
+        load_and_persist.session.add_all([event, interested])
+        load_and_persist.session.commit()
+
+        fake_bot.send_message.side_effect = Exception("too many requests")
+
+        updated = load_and_persist._update_event(
+            _dto(band="Band B"), event, load_and_persist._get_or_create_band("Band B")
+        )
+
+        # The change is still applied even though notifying the user failed.
+        assert updated is event
+        assert event.band_name == "Band B"
+        fake_bot.send_message.assert_called_once()
 
 
 class _NoopTqdm:
@@ -106,7 +142,9 @@ class TestFillMissingBandInformation:
     def test_fills_only_missing_information(self, wire, monkeypatch):
         wire(load_and_persist)
         missing = Band(name="Missing")
-        partial = Band(name="Partial", audio_sample="https://www.deezer.com/track/existing")
+        partial = Band(
+            name="Partial", audio_sample="https://www.deezer.com/track/existing"
+        )
         complete = Band(
             name="Complete",
             audio_sample="https://www.deezer.com/track/existing",
@@ -171,9 +209,7 @@ class TestAdminUser:
 
 
 class TestFillMissingStickerFileIds:
-    def test_loads_admin_once_and_prewarms(
-        self, wire, fake_bot, monkeypatch, tmp_path
-    ):
+    def test_loads_admin_once_and_prewarms(self, wire, fake_bot, monkeypatch, tmp_path):
         wire(load_and_persist, send_events)
         image = tmp_path / "band.webp"
         image.write_bytes(b"fake-sticker")
@@ -235,8 +271,12 @@ class TestDeleteOrphanedBands:
 
         referenced = Band(name="Referenced")
         event = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band=referenced,
-            city="F", location="L", event_date=date(2026, 5, 10),
+            dto_id="1",
+            source=Source.BATSCHKAPP,
+            band=referenced,
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
         orphaned = Band(name="Orphaned", image_path=str(image))
         load_and_persist.session.add_all([referenced, event, orphaned])
@@ -265,20 +305,36 @@ class TestInformUsersOfNewEvents:
         band_none = Band(name="No Genre")
 
         event_rock = Event(
-            dto_id="1", source=Source.BATSCHKAPP, band=band_rock,
-            city="F", location="L", event_date=date(2026, 5, 10),
+            dto_id="1",
+            source=Source.BATSCHKAPP,
+            band=band_rock,
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
         event_metal = Event(
-            dto_id="2", source=Source.FESTHALLE, band=band_metal,
-            city="F", location="L", event_date=date(2026, 5, 10),
+            dto_id="2",
+            source=Source.FESTHALLE,
+            band=band_metal,
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
         event_both = Event(
-            dto_id="3", source=Source.ZOOM, band=band_both,
-            city="F", location="L", event_date=date(2026, 5, 10),
+            dto_id="3",
+            source=Source.ZOOM,
+            band=band_both,
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
         event_none = Event(
-            dto_id="4", source=Source.SCHLACHTHOF, band=band_none,
-            city="F", location="L", event_date=date(2026, 5, 10),
+            dto_id="4",
+            source=Source.SCHLACHTHOF,
+            band=band_none,
+            city="F",
+            location="L",
+            event_date=date(2026, 5, 10),
         )
 
         user = User(id=1, chat_id=100, username="alice")
