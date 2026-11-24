@@ -28,10 +28,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Registers the root logging handlers (Telegram admin + rotating file), exactly
+# like the other entry points (main.py, scrape_events.py, send_reminders.py).
+# Importing it up front means every ``logging`` call below is written to the
+# journal, to /var/log/konzerte_bot/application.log *and* to the admin bot.
+import logger  # noqa: F401
+
 # The script lives in the repository root, so that is the application directory.
 APP_DIR = Path(__file__).resolve().parent
 GIT_USER = os.environ.get("KONZERTE_BOT_GIT_USER", "root")
-STATE_DIR = Path(os.environ.get("KONZERTE_BOT_STATE_DIR", "/var/lib/konzerte_bot/upgrade"))
+STATE_DIR = Path(
+    os.environ.get("KONZERTE_BOT_STATE_DIR", "/var/lib/konzerte_bot/upgrade")
+)
 
 REQUIREMENTS_REL = "requirements.txt"
 REQUIREMENTS_FILE = APP_DIR / REQUIREMENTS_REL
@@ -44,28 +52,11 @@ FIX_JSON = STATE_DIR / "fix.json"
 # ``pip-audit`` is installed as a console script next to the venv interpreter.
 PIP_AUDIT = os.path.join(os.path.dirname(sys.executable), "pip-audit")
 
-
-def log(message: str) -> None:
-    """Write a line to the journal (stdout is captured by systemd)."""
-    print(message, flush=True)
-
-
-def notify_admin(level: int, message: str) -> None:
-    """Send a message to the admin bot, reusing the handler from ``logger.py``.
-
-    Importing ``logger`` registers the Telegram + file log handlers on the root
-    logger, exactly as the application does, so the message reaches the admin
-    bot with the same level emoji and notification behaviour.
-    """
-    try:
-        import logger  # noqa: F401  (registers the Telegram + file handlers)
-    except Exception:  # pragma: no cover - only if the app itself is broken
-        pass
-    logging.getLogger("konzerte_bot.upgrade").log(level, message)
+root_logger = logging.getLogger("konzerte_bot.upgrade")
 
 
 def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
-    log(f"+ {shlex.join(cmd)}")
+    root_logger.info(f"+ {shlex.join(cmd)}")
     return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
 
 
@@ -92,9 +83,12 @@ def run_pip_audit(extra: list[str], output: Path) -> subprocess.CompletedProcess
     return run(
         [
             PIP_AUDIT,
-            "--format", "json",
-            "--progress-spinner", "off",
-            "--output", str(output),
+            "--format",
+            "json",
+            "--progress-spinner",
+            "off",
+            "--output",
+            str(output),
             *extra,
         ]
     )
@@ -143,32 +137,31 @@ def _commit_and_push(changed: list[tuple[str, str]]) -> bool:
     summary = ", ".join(name for name, _ in changed)
 
     if run_git("add", REQUIREMENTS_REL).returncode != 0:
-        notify_admin(logging.ERROR, "konzerte_bot upgrade: `git add requirements.txt` failed")
+        root_logger.exception("konzerte_bot upgrade: `git add requirements.txt` failed")
         return False
 
     # Nothing staged (e.g. the floor was already satisfied) — nothing to push.
     if run_git("diff", "--cached", "--quiet", "--", REQUIREMENTS_REL).returncode == 0:
         return True
 
-    committed = run_git("commit", "-m", f"chore(deps): update vulnerable dependencies ({summary})")
+    committed = run_git(
+        "commit", "-m", f"chore(deps): update vulnerable dependencies ({summary})"
+    )
     if committed.returncode != 0:
-        notify_admin(
-            logging.ERROR,
+        root_logger.exception(
             f"konzerte_bot upgrade: git commit failed\n{committed.stderr.strip()}",
         )
         return False
 
     pushed = run_git("push")
     if pushed.returncode != 0:
-        notify_admin(
-            logging.ERROR,
+        root_logger.exception(
             "konzerte_bot upgrade: git push failed (the change is committed locally)\n"
             f"{pushed.stderr.strip()}",
         )
         return False
 
-    notify_admin(
-        logging.INFO,
+    root_logger.info(
         f"konzerte_bot upgrade: upgraded {len(changed)} package(s) and pushed requirements.txt ({summary})",
     )
     return True
@@ -176,43 +169,59 @@ def _commit_and_push(changed: list[tuple[str, str]]) -> bool:
 
 def main() -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
-    log("konzerte_bot dependency upgrade starting")
+    root_logger.info("konzerte_bot dependency upgrade starting")
 
     # ── 1. Pull the newest main ─────────────────────────────────────────────
-    log("Pulling the newest version of main")
+    root_logger.info("Pulling the newest version of main")
     # Discard any stale uncommitted edit to requirements.txt left by an
     # interrupted run, so the pull can fast-forward cleanly.
     run_git("checkout", "--", REQUIREMENTS_REL)
     pulled = run_git("pull", "--ff-only")
     if pulled.returncode != 0:
-        notify_admin(
-            logging.ERROR,
+        root_logger.exception(
             f"konzerte_bot upgrade aborted: git pull failed\n{pulled.stderr.strip()}",
         )
         return 1
 
     # ── 2. Tooling ──────────────────────────────────────────────────────────
-    log("Installing upgrade tooling (pip-audit + test dependencies)")
-    if run([sys.executable, "-m", "pip", "install", "--quiet", "pip-audit"]).returncode != 0:
-        notify_admin(logging.ERROR, "konzerte_bot upgrade aborted: could not install pip-audit")
+    root_logger.info("Installing upgrade tooling (pip-audit + test dependencies)")
+    if (
+        run([sys.executable, "-m", "pip", "install", "--quiet", "pip-audit"]).returncode
+        != 0
+    ):
+        root_logger.exception(
+            "konzerte_bot upgrade aborted: could not install pip-audit"
+        )
         return 1
     if DEV_REQUIREMENTS_FILE.exists():
-        run([sys.executable, "-m", "pip", "install", "--quiet", "-r", str(DEV_REQUIREMENTS_FILE)])
+        run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "-r",
+                str(DEV_REQUIREMENTS_FILE),
+            ]
+        )
 
     # ── 3. Snapshot (rollback point) ────────────────────────────────────────
-    log("Snapshotting current versions")
+    root_logger.info("Snapshotting current versions")
     with open(SNAPSHOT_FILE, "w", encoding="utf-8") as fh:
         subprocess.run([sys.executable, "-m", "pip", "freeze"], stdout=fh, check=True)
 
     # ── 4. Audit ────────────────────────────────────────────────────────────
-    log("Auditing the environment for known vulnerabilities")
+    root_logger.info("Auditing the environment for known vulnerabilities")
     AUDIT_JSON.unlink(missing_ok=True)
     audited = run_pip_audit([], AUDIT_JSON)
 
     deps: list[dict] = []
     if AUDIT_JSON.exists():
         try:
-            deps = json.loads(AUDIT_JSON.read_text(encoding="utf-8")).get("dependencies", [])
+            deps = json.loads(AUDIT_JSON.read_text(encoding="utf-8")).get(
+                "dependencies", []
+            )
         except (json.JSONDecodeError, OSError):
             deps = []
     vulnerable = [d for d in deps if d.get("vulns")]
@@ -221,32 +230,34 @@ def main() -> int:
     # pip-audit exits 1 on both findings and fatal errors; a fatal error (e.g.
     # the vulnerability service is unreachable) produces no report at all.
     if audited.returncode != 0 and not vulnerable:
-        notify_admin(
-            logging.WARNING,
+        root_logger.warning(
             f"konzerte_bot upgrade skipped: pip-audit failed\n{audited.stderr.strip()}",
         )
         return 0
 
     if not vulnerable:
-        log("No known vulnerabilities — nothing to upgrade")
+        root_logger.info("No known vulnerabilities — nothing to upgrade")
         return 0
 
-    log(f"Found {len(vulnerable)} vulnerable package(s), {len(fixable)} with a published fix")
+    root_logger.info(
+        f"Found {len(vulnerable)} vulnerable package(s), {len(fixable)} with a published fix"
+    )
     if not fixable:
         names = ", ".join(d["name"] for d in vulnerable)
-        notify_admin(
-            logging.WARNING,
+        root_logger.warning(
             f"konzerte_bot upgrade: {len(vulnerable)} vulnerable package(s) have no fix yet ({names})",
         )
         return 0
 
     # ── 5. Fix ──────────────────────────────────────────────────────────────
-    log("Upgrading vulnerable packages to fixed versions")
+    root_logger.info("Upgrading vulnerable packages to fixed versions")
     FIX_JSON.unlink(missing_ok=True)
     fixed = run_pip_audit(["--fix"], FIX_JSON)
     if fixed.returncode != 0:
-        log("pip-audit reported that not every vulnerability could be fixed (continuing)")
-        log(fixed.stderr.strip())
+        root_logger.info(
+            "pip-audit reported that not every vulnerability could be fixed (continuing)"
+        )
+        root_logger.info(fixed.stderr.strip())
 
     fixes: list[dict] = []
     if FIX_JSON.exists():
@@ -257,14 +268,14 @@ def main() -> int:
 
     changed = bump_requirements(fixes)
     if not changed:
-        log("No packages were actually changed — nothing to test")
+        root_logger.info("No packages were actually changed — nothing to test")
         return 0
-    log("Changed packages:")
+    root_logger.info("Changed packages:")
     for name, version in changed:
-        log(f"  {name} -> {version}")
+        root_logger.info(f"  {name} -> {version}")
 
     # ── 6. Tests ────────────────────────────────────────────────────────────
-    log("Running the full test suite")
+    root_logger.info("Running the full test suite")
     env = dict(
         os.environ,
         PYTHONDONTWRITEBYTECODE="1",
@@ -278,22 +289,31 @@ def main() -> int:
 
     # ── 7. Keep or roll back ────────────────────────────────────────────────
     if tested.returncode == 0:
-        log("All tests passed — keeping the upgraded versions")
+        root_logger.info("All tests passed — keeping the upgraded versions")
         if _commit_and_push(changed):
             return 0
         return 1
 
     summary = ", ".join(name for name, _ in changed)
-    log("Tests FAILED — rolling back to the last known-good versions")
-    notify_admin(
-        logging.ERROR,
+    root_logger.info("Tests FAILED — rolling back to the last known-good versions")
+    root_logger.exception(
         f"konzerte_bot upgrade: tests failed, rolling back ({summary})",
     )
-    if subprocess.run(
-        [sys.executable, "-m", "pip", "install", "--quiet", "-r", str(SNAPSHOT_FILE)]
-    ).returncode != 0:
-        notify_admin(
-            logging.ERROR,
+    if (
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--quiet",
+                "-r",
+                str(SNAPSHOT_FILE),
+            ]
+        ).returncode
+        != 0
+    ):
+        root_logger.exception(
             "konzerte_bot upgrade: ROLLBACK FAILED — restore manually from the snapshot",
         )
     run_git("checkout", "--", REQUIREMENTS_REL)
@@ -301,4 +321,9 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    exit_code = 1
+    try:
+        exit_code = main()
+    finally:
+        sys.exit(exit_code)
     sys.exit(main())

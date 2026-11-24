@@ -247,10 +247,10 @@ What it does, every night at 03:00 (between the 01:00 stop and the 05:00 start):
 8. Leaves the bot stopped — the `konzerte_bot-night-sync.timer` starts it again
    at 05:00 with whichever version survived step 6.
 
-The full log of every run is available via `journalctl -u konzerte_bot-upgrade`,
-and errors/upgrade results are sent to the admin bot and written to
-`/var/log/konzerte_bot/application.log` through the same `logger.py` handler as
-the rest of the application.
+Like the other services, every run writes its progress to the journal
+(`journalctl -u konzerte_bot-upgrade`), to
+`/var/log/konzerte_bot/application.log`, and to the admin bot, through the same
+`logger.py` handlers as the rest of the application.
 
 > **Note:** the scheduled `git pull`/`git push` run as the repository owner
 > (`GIT_USER`, defaulting to the user who ran `setup.sh`). For this to work
