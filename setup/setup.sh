@@ -143,7 +143,16 @@ fi
 say "Creating runtime directories"
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$DB_DIR"
 install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$IMAGES_DIR"
-install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0755 "$LOG_DIR"
+# The nightly upgrade service runs as root while the other services run as the
+# service user, and they all append to the same rotating log file. Use a
+# setgid + group-writable directory so every file created inside stays owned by
+# the service user's group (the upgrade unit sets UMask=0002, so root-created
+# log files remain writable by the service user after rotation).
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 2775 "$LOG_DIR"
+# Repair any log files already created with the wrong owner/mode (e.g. by an
+# older upgrade run as root) so the service user can keep appending to them.
+chown -R "$SERVICE_USER:$SERVICE_USER" "$LOG_DIR" || true
+chmod 2775 "$LOG_DIR"
 install -d -m 0755 "$CONFIG_DIR"
 
 # ── Virtualenv + dependencies ─────────────────────────────────────────────
@@ -446,6 +455,9 @@ EnvironmentFile=$ENV_FILE
 Environment=KONZERTE_BOT_GIT_USER=$GIT_USER
 Environment=KONZERTE_BOT_DATABASE_URL=sqlite:///:memory:
 Environment=PYTHONDONTWRITEBYTECODE=1
+# Root writes to the shared log file; 0002 keeps created files group-writable
+# so the $SERVICE_USER services can keep appending after this service rotates it.
+UMask=0002
 ExecStart=$VENV_DIR/bin/python upgrade_dependencies.py
 EOF
 chmod 0644 "/etc/systemd/system/$UPGRADE_SERVICE_NAME.service"
